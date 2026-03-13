@@ -3,6 +3,7 @@
   python3Packages,
   tmux,
   makeWrapper,
+  vendorDir ? null,
 }:
 
 python3Packages.buildPythonApplication {
@@ -29,6 +30,11 @@ python3Packages.buildPythonApplication {
   postFixup = ''
     wrapProgram $out/bin/kannix \
       --prefix PATH : ${lib.makeBinPath [ tmux ]}
+    ${lib.optionalString (vendorDir != null) ''
+      local siteDir=$(echo $out/lib/python3*/site-packages)
+      mkdir -p $siteDir/kannix/static/vendor
+      cp ${vendorDir}/* $siteDir/kannix/static/vendor/
+    ''}
   '';
 
   # Tests require network/pty

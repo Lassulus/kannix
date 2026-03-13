@@ -56,7 +56,11 @@ def create_app(
 
     # Mount static files
     static_dir = Path(__file__).parent / "static"
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    app.mount(
+        "/static",
+        StaticFiles(directory=str(static_dir), follow_symlink=True),
+        name="static",
+    )
 
     @app.get("/health")
     async def health() -> dict[str, str]:

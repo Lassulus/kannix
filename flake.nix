@@ -4,6 +4,14 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    diff2html-css = {
+      url = "https://cdn.jsdelivr.net/npm/diff2html@3.4.56/bundles/css/diff2html.min.css";
+      flake = false;
+    };
+    diff2html-js = {
+      url = "https://cdn.jsdelivr.net/npm/diff2html@3.4.56/bundles/js/diff2html-ui.min.js";
+      flake = false;
+    };
   };
 
   outputs =
@@ -11,6 +19,8 @@
       self,
       nixpkgs,
       flake-utils,
+      diff2html-css,
+      diff2html-js,
     }:
     {
       nixosModules.default = ./module.nix;
@@ -41,11 +51,19 @@
 
         src = self;
 
+        vendorDir = pkgs.runCommand "kannix-vendor" { } ''
+          mkdir -p $out
+          cp ${diff2html-css} $out/diff2html.min.css
+          cp ${diff2html-js} $out/diff2html-ui.min.js
+        '';
+
         mkCheck =
           name: script:
           pkgs.runCommand "kannix-check-${name}" { nativeBuildInputs = [ pythonEnv pkgs.ruff ]; } ''
             cp -r ${src}/* .
             chmod -R u+w .
+            mkdir -p src/kannix/static/vendor
+            cp ${vendorDir}/* src/kannix/static/vendor/
             export PYTHONPATH="$PWD/src:$PYTHONPATH"
             export HOME=$(mktemp -d)
             ${script}
@@ -53,7 +71,7 @@
           '';
       in
       {
-        packages.default = pkgs.callPackage ./package.nix { };
+        packages.default = pkgs.callPackage ./package.nix { inherit vendorDir; };
 
         checks = {
           ruff-check = mkCheck "ruff-check" ''
@@ -117,7 +135,12 @@
 
           shellHook = ''
             export PYTHONPATH="$PWD/src:$PYTHONPATH"
+            # Vendor diff2html for dev
+            mkdir -p src/kannix/static/vendor
+            ln -sf ${vendorDir}/diff2html.min.css src/kannix/static/vendor/diff2html.min.css
+            ln -sf ${vendorDir}/diff2html-ui.min.js src/kannix/static/vendor/diff2html-ui.min.js
           '';
+        
         };
       }
     );

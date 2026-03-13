@@ -1,5 +1,29 @@
 {
   "nodes": {
+    "diff2html-css": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-4laymVEnJy8ZQBBsJv5XXRg/6sA/gO1FpY6bBRm9z34=",
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/diff2html@3.4.56/bundles/css/diff2html.min.css"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/diff2html@3.4.56/bundles/css/diff2html.min.css"
+      }
+    },
+    "diff2html-js": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-Rc/n1Z3lrdOYh83ZxtQzy5YD1VhuB9m+YOBkQ8a9OTA=",
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/diff2html@3.4.56/bundles/js/diff2html-ui.min.js"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://cdn.jsdelivr.net/npm/diff2html@3.4.56/bundles/js/diff2html-ui.min.js"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -36,6 +60,8 @@
     },
     "root": {
       "inputs": {
+        "diff2html-css": "diff2html-css",
+        "diff2html-js": "diff2html-js",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"
       }

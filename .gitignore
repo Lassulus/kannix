@@ -10,3 +10,4 @@ build/
 .venv/
 result
 .direnv
+src/kannix/static/vendor/

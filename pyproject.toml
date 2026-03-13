@@ -23,7 +23,7 @@ kannix-ctl = "kannix.ctl:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-kannix = ["templates/**/*.html", "static/**/*.css"]
+kannix = ["templates/**/*.html", "static/**/*.css", "static/vendor/*"]
 
 [tool.mypy]
 strict = true
