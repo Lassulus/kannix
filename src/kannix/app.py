@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 
+from kannix.api.admin import create_admin_router
 from kannix.api.auth import create_auth_router
 from kannix.auth import AuthManager
 from kannix.deps import AppDeps
@@ -34,6 +35,7 @@ def create_app(
 
         # Register routers
         app.include_router(create_auth_router(deps), prefix="/api/auth")
+        app.include_router(create_admin_router(deps), prefix="/api/admin")
 
     @app.get("/health")
     async def health() -> dict[str, str]:
