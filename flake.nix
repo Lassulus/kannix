@@ -12,6 +12,10 @@
       nixpkgs,
       flake-utils,
     }:
+    {
+      nixosModules.default = ./module.nix;
+    }
+    //
     flake-utils.lib.eachDefaultSystem (
       system:
       let
