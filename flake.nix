@@ -59,7 +59,7 @@
 
         mkCheck =
           name: script:
-          pkgs.runCommand "kannix-check-${name}" { nativeBuildInputs = [ pythonEnv pkgs.ruff ]; } ''
+          pkgs.runCommand "kannix-check-${name}" { nativeBuildInputs = [ pythonEnv pkgs.ruff pkgs.tmux ]; } ''
             cp -r ${src}/* .
             chmod -R u+w .
             mkdir -p src/kannix/static/vendor

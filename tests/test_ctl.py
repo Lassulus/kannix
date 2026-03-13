@@ -551,11 +551,6 @@ def test_ctl_missing_env_vars(
 
 def test_tmux_create_session_sets_env_vars() -> None:
     """TmuxManager.create_session should set KANNIX_* env vars."""
-    import os
-
-    if os.environ.get("NIX_BUILD_TOP"):
-        pytest.skip("tmux tests require pty, skipped in sandbox")
-
     from kannix.tmux import TmuxManager
 
     mgr = TmuxManager(socket_name="kannix-test-env")

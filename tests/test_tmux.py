@@ -9,12 +9,6 @@ import pytest
 
 from kannix.tmux import TmuxManager
 
-# Skip in Nix sandbox (no tmux/pty available)
-pytestmark = pytest.mark.skipif(
-    os.environ.get("NIX_BUILD_TOP") is not None,
-    reason="tmux tests require pty, not available in Nix sandbox",
-)
-
 
 @pytest.fixture
 def tmux(tmp_path: object) -> TmuxManager:
