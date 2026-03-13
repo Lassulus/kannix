@@ -28,6 +28,18 @@ def _slugify(text: str) -> str:
     return s
 
 
+def ticket_dir_name(ticket_id: str, title: str) -> str:
+    """Generate a human-friendly directory name for a ticket workspace.
+
+    Format: <slugified-title>-<short-id>, e.g. "fix-auth-bug-a3f8b2c1"
+    """
+    short_id = ticket_id[:8]
+    slug = _slugify(title)
+    if slug:
+        return f"{slug}-{short_id}"
+    return short_id
+
+
 def _run_git(
     *args: str,
     cwd: Path | None = None,
@@ -134,9 +146,16 @@ class GitManager:
             return f"ticket/{short_id}-{slug}"
         return f"ticket/{short_id}"
 
+    def _ticket_dir(self, ticket_id: str) -> str:
+        """Get the ticket workspace directory name from state."""
+        state = self._state_manager.load()
+        ticket = state.tickets.get(ticket_id)
+        title = ticket.title if ticket else ""
+        return ticket_dir_name(ticket_id, title)
+
     def _worktree_path(self, ticket_id: str, repo_name: str) -> Path:
         """Get the worktree path for a ticket+repo."""
-        return self._worktree_dir / ticket_id / repo_name
+        return self._worktree_dir / self._ticket_dir(ticket_id) / repo_name
 
     def create_worktree(self, repo_id: str, ticket_id: str, title: str) -> Path:
         """Create a worktree for a ticket in a repo.

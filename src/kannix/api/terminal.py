@@ -73,7 +73,10 @@ def create_terminal_router(deps: AppDeps, tmux: TmuxManager) -> APIRouter:
         if deps.config.worktree_dir:
             from pathlib import Path
 
-            ticket_workspace = Path(deps.config.worktree_dir) / ticket_id
+            from kannix.git import ticket_dir_name
+
+            dirname = ticket_dir_name(ticket_id, ticket_state.title)
+            ticket_workspace = Path(deps.config.worktree_dir) / dirname
             ticket_workspace.mkdir(parents=True, exist_ok=True)
             start_cwd = str(ticket_workspace)
 
