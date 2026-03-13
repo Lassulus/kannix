@@ -49,6 +49,8 @@
           '';
       in
       {
+        packages.default = pkgs.callPackage ./package.nix { };
+
         checks = {
           ruff-check = mkCheck "ruff-check" ''
             ruff check src/ tests/
