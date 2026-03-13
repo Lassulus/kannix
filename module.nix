@@ -122,9 +122,11 @@ in
 
   config = lib.mkIf cfg.enable {
     users.users.${cfg.user} = {
-      isSystemUser = true;
-      group = cfg.group;
+      isNormalUser = true;
       home = cfg.stateDir;
+      createHome = true;
+      group = cfg.group;
+      shell = pkgs.bashInteractive;
     };
 
     users.groups.${cfg.group} = { };
