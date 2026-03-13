@@ -176,6 +176,26 @@ def create_htmx_router(deps: AppDeps) -> APIRouter:
             return HTMLResponse("Ticket not found", status_code=404)
         return HTMLResponse("<div style='color: #4ade80;'>✓ Saved</div>")
 
+    @router.get("/tickets/{ticket_id}/fields")
+    async def ticket_fields(
+        request: Request,
+        ticket_id: str,
+        token: str | None = Cookie(default=None),
+    ) -> Response:
+        """Return ticket fields partial for live polling."""
+        user = _get_user(deps, token)
+        if user is None:
+            return HTMLResponse("", status_code=401)
+        ticket_mgr_local = TicketManager(deps.state_manager, deps.config)
+        ticket = ticket_mgr_local.get(ticket_id)
+        if ticket is None:
+            return HTMLResponse("", status_code=404)
+        return templates.TemplateResponse(
+            request,
+            "partials/ticket_fields.html",
+            {"ticket": ticket},
+        )
+
     @router.post("/tickets/{ticket_id}/move")
     async def move_ticket(
         request: Request,

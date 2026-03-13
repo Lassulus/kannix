@@ -10,11 +10,13 @@
         <span class="meta">{{ ticket.column }} · {{ ticket.id[:8] }}</span>
     </div>
     <div>
-        <form class="ticket-edit-form" hx-put="/htmx/tickets/{{ ticket.id }}" hx-target="#ticket-info" hx-swap="innerHTML">
+        <form class="ticket-edit-form" id="ticket-form"
+              hx-put="/htmx/tickets/{{ ticket.id }}"
+              hx-target="#ticket-info" hx-swap="innerHTML">
             <label for="title">Title</label>
-            <input class="edit-input" type="text" name="title" value="{{ ticket.title }}">
+            <input class="edit-input" type="text" name="title" id="field-title" value="{{ ticket.title }}">
             <label for="description">Description</label>
-            <textarea name="description" rows="3">{{ ticket.description }}</textarea>
+            <textarea name="description" id="field-description" rows="3">{{ ticket.description }}</textarea>
             <div><button type="submit" class="btn btn-sm">Save</button></div>
         </form>
         <div id="ticket-info"></div>
@@ -76,6 +78,32 @@
         term.write('\r\n\x1b[31m[Connection closed. Reconnecting in 3s...]\x1b[0m\r\n');
         setTimeout(function() { location.reload(); }, 3000);
     };
+})();
+
+// Poll for ticket field changes (skip if user is editing)
+(function() {
+    var formFocused = false;
+    var form = document.getElementById('ticket-form');
+    form.addEventListener('focusin', function() { formFocused = true; });
+    form.addEventListener('focusout', function() { formFocused = false; });
+
+    setInterval(function() {
+        if (formFocused) return;
+        fetch('/htmx/tickets/{{ ticket.id }}/fields', {credentials: 'same-origin'})
+            .then(function(r) { return r.ok ? r.text() : null; })
+            .then(function(html) {
+                if (!html || formFocused) return;
+                var tmp = document.createElement('div');
+                tmp.innerHTML = html;
+                var newTitle = tmp.querySelector('input[name="title"]');
+                var newDesc = tmp.querySelector('textarea[name="description"]');
+                if (newTitle) document.getElementById('field-title').value = newTitle.value;
+                if (newDesc) document.getElementById('field-description').value = newDesc.textContent;
+                // Update header title too
+                var span = document.getElementById('ticket-title');
+                if (span && newTitle) span.textContent = newTitle.value;
+            });
+    }, 3000);
 })();
 </script>
 {% endblock %}
