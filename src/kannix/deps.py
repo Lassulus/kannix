@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from kannix.auth import AuthManager
     from kannix.config import KannixConfig
+    from kannix.git import GitManager
     from kannix.state import StateManager
 
 
@@ -18,3 +19,4 @@ class AppDeps:
     config: KannixConfig
     state_manager: StateManager
     auth_manager: AuthManager
+    git_manager: GitManager | None = None

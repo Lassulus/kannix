@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Repos{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="toolbar">
+        <h1>Git Repositories</h1>
+        <div class="toolbar-right">
+            <a href="/board" class="btn btn-sm">← Board</a>
+            <select class="theme-chooser" id="theme-chooser" onchange="setTheme(this.value)">
+                {% for t in themes %}
+                <option value="{{ t }}" {% if t == theme %}selected{% endif %}>{{ t|capitalize }}</option>
+                {% endfor %}
+            </select>
+            <span>{{ username }}</span>
+        </div>
+    </div>
+
+    {% if not git_enabled %}
+    <div class="error">
+        Git integration not configured. Set <code>repos_dir</code> and <code>worktree_dir</code> in config.
+    </div>
+    {% else %}
+    <div style="margin-bottom: 1.5rem;">
+        <h2 style="margin-bottom: 0.5rem;">Clone Repository</h2>
+        <form class="create-form"
+              hx-post="/htmx/repos/clone"
+              hx-target="#repo-list"
+              hx-swap="beforeend"
+              style="display: flex; gap: 0.5rem; align-items: flex-end;">
+            <div style="flex: 2;">
+                <input type="text" name="url" placeholder="https://github.com/user/repo.git" required style="width: 100%;">
+            </div>
+            <div style="flex: 1;">
+                <input type="text" name="name" placeholder="Name (optional)" style="width: 100%;">
+            </div>
+            <button type="submit" class="btn">Clone</button>
+        </form>
+    </div>
+
+    <h2 style="margin-bottom: 0.5rem;">Registered Repos</h2>
+    <div id="repo-list">
+        {% for repo in repos %}
+        {% include "partials/repo_row.html" %}
+        {% endfor %}
+    </div>
+    {% if not repos %}
+    <p style="color: var(--text-muted);">No repositories registered yet.</p>
+    {% endif %}
+    {% endif %}
+</div>
+
+<script>
+function setTheme(name) {
+    document.cookie = 'theme=' + name + ';path=/;max-age=31536000';
+    var link = document.querySelector('link[href*="/static/themes/"]');
+    var newLink = document.createElement('link');
+    newLink.rel = 'stylesheet';
+    newLink.href = '/static/themes/' + name + '.css';
+    newLink.onload = function() { link.remove(); };
+    link.parentNode.insertBefore(newLink, link.nextSibling);
+}
+</script>
+{% endblock %}

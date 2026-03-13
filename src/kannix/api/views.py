@@ -130,6 +130,29 @@ def create_views_router(deps: AppDeps) -> APIRouter:
             },
         )
 
+    @router.get("/repos")
+    async def repos_page(
+        request: Request,
+        token: str | None = Cookie(default=None),
+        theme: str | None = Cookie(default=None),
+    ) -> Response:
+        user = _get_user(deps, token)
+        if user is None:
+            return RedirectResponse(url="/login", status_code=302)
+        repos = deps.git_manager.list_repos() if deps.git_manager else []
+        git_enabled = deps.git_manager is not None
+        return templates.TemplateResponse(
+            request,
+            "repos.html",
+            {
+                "repos": repos,
+                "git_enabled": git_enabled,
+                "username": user.username,
+                "theme": _get_theme(theme),
+                "themes": AVAILABLE_THEMES,
+            },
+        )
+
     return router
 
 
@@ -195,6 +218,45 @@ def create_htmx_router(deps: AppDeps) -> APIRouter:
             "partials/ticket_fields.html",
             {"ticket": ticket},
         )
+
+    @router.post("/repos/clone")
+    async def clone_repo_htmx(
+        request: Request,
+        url: str = Form(),
+        name: str = Form(default=""),
+        token: str | None = Cookie(default=None),
+    ) -> Response:
+        user = _get_user(deps, token)
+        if user is None:
+            return RedirectResponse(url="/login", status_code=302)
+        if deps.git_manager is None:
+            return HTMLResponse("Git not configured", status_code=400)
+        try:
+            repo = deps.git_manager.clone_repo(url, name=name or None)
+        except Exception as e:
+            return HTMLResponse(
+                f"<div class='error'>Clone failed: {e}</div>",
+                status_code=400,
+            )
+        return templates.TemplateResponse(
+            request,
+            "partials/repo_row.html",
+            {"repo": repo},
+        )
+
+    @router.delete("/repos/{repo_id}")
+    async def delete_repo_htmx(
+        request: Request,
+        repo_id: str,
+        token: str | None = Cookie(default=None),
+    ) -> Response:
+        user = _get_user(deps, token)
+        if user is None:
+            return RedirectResponse(url="/login", status_code=302)
+        if deps.git_manager is None:
+            return HTMLResponse("", status_code=404)
+        deps.git_manager.delete_repo(repo_id)
+        return HTMLResponse("")
 
     @router.post("/tickets/{ticket_id}/move")
     async def move_ticket(

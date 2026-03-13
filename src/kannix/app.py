@@ -32,10 +32,27 @@ def create_app(
     # Set up dependencies
     if config is not None and state_manager is not None:
         auth_manager = AuthManager(state_manager)
+
+        # Set up git manager if configured
+        git_manager = None
+        if config.repos_dir and config.worktree_dir:
+            from kannix.git import GitManager
+
+            repos_dir = Path(config.repos_dir)
+            worktree_dir = Path(config.worktree_dir)
+            repos_dir.mkdir(parents=True, exist_ok=True)
+            worktree_dir.mkdir(parents=True, exist_ok=True)
+            git_manager = GitManager(
+                repos_dir=repos_dir,
+                worktree_dir=worktree_dir,
+                state_manager=state_manager,
+            )
+
         deps = AppDeps(
             config=config,
             state_manager=state_manager,
             auth_manager=auth_manager,
+            git_manager=git_manager,
         )
         app.state.deps = deps
 
@@ -47,6 +64,11 @@ def create_app(
         from kannix.api.columns import create_columns_router
 
         app.include_router(create_columns_router(deps), prefix="/api")
+
+        if git_manager is not None:
+            from kannix.api.repos import create_repos_router
+
+            app.include_router(create_repos_router(deps), prefix="/api/repos")
         app.include_router(create_views_router(deps))
         app.include_router(create_htmx_router(deps), prefix="/htmx")
 

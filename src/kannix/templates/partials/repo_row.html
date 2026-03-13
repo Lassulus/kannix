@@ -1,0 +1,14 @@
+<div class="ticket-card" id="repo-{{ repo.id }}" style="border-left-color: var(--text-muted);">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <div class="title">{{ repo.name }}</div>
+            <div class="meta">{{ repo.url }} · branch: {{ repo.default_branch }}</div>
+        </div>
+        <button class="btn btn-sm"
+                style="background: #666;"
+                hx-delete="/htmx/repos/{{ repo.id }}"
+                hx-target="#repo-{{ repo.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="Delete repo {{ repo.name }}?">Delete</button>
+    </div>
+</div>

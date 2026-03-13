@@ -5,6 +5,7 @@
     <div class="toolbar">
         <h1>Kannix Board</h1>
         <div class="toolbar-right">
+            <a href="/repos" class="btn btn-sm" style="background: var(--bg-input); color: var(--text-primary);">Repos</a>
             <select class="theme-chooser" id="theme-chooser" onchange="setTheme(this.value)">
                 {% for t in themes %}
                 <option value="{{ t }}" {% if t == theme %}selected{% endif %}>{{ t|capitalize }}</option>

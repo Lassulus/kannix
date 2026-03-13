@@ -18,7 +18,7 @@
     {
       "id": 3,
       "text": "M7.3: Git manager — GitManager class: clone_repo(url), register_repo(path), list_repos(), delete_repo(), create_worktree(repo_id, ticket_id, title), delete_worktree(), get_diff(repo_id, ticket_id). TDD: clone, worktree create/delete, diff generation.",
-      "done": false
+      "done": true
     },
     {
       "id": 4,

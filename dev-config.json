@@ -4,6 +4,8 @@
     "on_create": "tmux -L kannix new-session -d -s $TICKET_ID",
     "on_delete": "tmux -L kannix kill-session -t $TICKET_ID"
   },
+  "repos_dir": "/tmp/kannix-dev/repos",
+  "worktree_dir": "/tmp/kannix-dev/worktrees",
   "server": {
     "host": "127.0.0.1",
     "port": 9876
