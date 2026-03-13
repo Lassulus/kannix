@@ -68,14 +68,14 @@ def create_terminal_router(deps: AppDeps, tmux: TmuxManager) -> APIRouter:
 
         await websocket.accept()
 
-        # Start in the first assigned repo's worktree if available
+        # Start in the ticket's workspace directory (always exists)
         start_cwd: str | None = None
-        if deps.git_manager:
-            for repo_id in ticket_state.repos:
-                wt_path = deps.git_manager.get_worktree_path(repo_id, ticket_id)
-                if wt_path:
-                    start_cwd = str(wt_path)
-                    break
+        if deps.config.worktree_dir:
+            from pathlib import Path
+
+            ticket_workspace = Path(deps.config.worktree_dir) / ticket_id
+            ticket_workspace.mkdir(parents=True, exist_ok=True)
+            start_cwd = str(ticket_workspace)
 
         try:
             tmux.create_session(ticket_id, env=kannix_env, cwd=start_cwd)
