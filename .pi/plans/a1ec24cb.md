@@ -33,12 +33,12 @@
     {
       "id": 6,
       "text": "M7.6: Ticket-repo assignment — API + UI to assign/unassign repos to tickets. On assign: create worktree + branch. On unassign: optionally delete worktree. Update ticket model with repos list. TDD.",
-      "done": false
+      "done": true
     },
     {
       "id": 7,
       "text": "M7.7: Diff view on ticket page — tabbed diff view per assigned repo on ticket detail page. Uses diff2html.js for rendering. Tab per repo, shows branch diff vs merge-base. TDD: diff endpoint returns unified diff, page includes diff2html, tabs render.",
-      "done": false
+      "done": true
     },
     {
       "id": 8,

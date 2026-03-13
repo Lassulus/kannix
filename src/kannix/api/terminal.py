@@ -55,6 +55,17 @@ def create_terminal_router(deps: AppDeps, tmux: TmuxManager) -> APIRouter:
             "KANNIX_TOKEN": token,
             "KANNIX_TICKET_ID": ticket_id,
         }
+
+        # Add worktree paths for assigned repos
+        ticket_state = state.tickets[ticket_id]
+        if deps.git_manager:
+            for repo_id in ticket_state.repos:
+                wt_path = deps.git_manager.get_worktree_path(repo_id, ticket_id)
+                repo = deps.git_manager.get_repo(repo_id)
+                if wt_path and repo:
+                    safe_name = repo.name.upper().replace("-", "_")
+                    kannix_env[f"KANNIX_WORKTREE_{safe_name}"] = str(wt_path)
+
         tmux.create_session(ticket_id, env=kannix_env)
 
         # Attach to tmux via pty

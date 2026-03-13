@@ -126,6 +126,31 @@ def _cmd_list_tickets(args: argparse.Namespace) -> None:
         print(f"[{t['column']}] {t['title']} ({t['id'][:8]}){marker}")
 
 
+def _cmd_list_repos(args: argparse.Namespace) -> None:
+    """List all repos."""
+    url, token, _ticket_id = _get_env()
+    status, body = _http_request(f"{url}/api/repos", token=token)
+    if status != 200:
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    repos = json.loads(body)
+    for r in repos:
+        print(f"{r['name']} ({r['id'][:8]}) — {r['url']} [{r['default_branch']}]")
+
+
+def _cmd_worktrees(args: argparse.Namespace) -> None:
+    """Show worktree paths for current ticket."""
+    _url, _token, _ticket_id = _get_env()
+    found = False
+    for key, value in sorted(os.environ.items()):
+        if key.startswith("KANNIX_WORKTREE_"):
+            repo_name = key[len("KANNIX_WORKTREE_") :].lower().replace("_", "-")
+            print(f"{repo_name}: {value}")
+            found = True
+    if not found:
+        print("No worktrees assigned to this ticket.", file=sys.stderr)
+
+
 def main() -> None:
     """Entry point for kannix-ctl."""
     parser = argparse.ArgumentParser(
@@ -145,6 +170,8 @@ def main() -> None:
 
     sub.add_parser("list-columns", help="List available columns")
     sub.add_parser("list-tickets", help="List all tickets")
+    sub.add_parser("list-repos", help="List all repos")
+    sub.add_parser("worktrees", help="Show worktree paths for this ticket")
 
     args = parser.parse_args()
 
@@ -154,6 +181,8 @@ def main() -> None:
         "move": _cmd_move,
         "list-columns": _cmd_list_columns,
         "list-tickets": _cmd_list_tickets,
+        "list-repos": _cmd_list_repos,
+        "worktrees": _cmd_worktrees,
     }
     commands[args.command](args)
 
