@@ -54,12 +54,7 @@ def create_terminal_router(deps: AppDeps, tmux: TmuxManager) -> APIRouter:
             "KANNIX_URL": f"http://{host}:{deps.config.server.port}",
             "KANNIX_TOKEN": token,
             "KANNIX_TICKET_ID": ticket_id,
-            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         }
-        # Pass PYTHONPATH so kannix-ctl can find the module in dev mode
-        pythonpath = os.environ.get("PYTHONPATH")
-        if pythonpath:
-            kannix_env["PYTHONPATH"] = pythonpath
         tmux.create_session(ticket_id, env=kannix_env)
 
         # Attach to tmux via pty
