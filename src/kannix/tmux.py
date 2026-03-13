@@ -55,14 +55,6 @@ class TmuxManager:
             if env:
                 for key, value in env.items():
                     self._run("set-environment", "-t", session_name, key, value)
-                    # Also inject into running shell
-                    self._run(
-                        "send-keys",
-                        "-t",
-                        session_name,
-                        f" export {key}={_shell_quote(value)}",
-                        "Enter",
-                    )
             return
         shell = self._default_shell()
         env_args: list[str] = []
