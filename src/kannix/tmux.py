@@ -30,15 +30,27 @@ class TmuxManager:
         except KeyError:
             return os.environ.get("SHELL", "/bin/sh")
 
-    def create_session(self, session_name: str) -> None:
+    def create_session(
+        self,
+        session_name: str,
+        env: dict[str, str] | None = None,
+    ) -> None:
         """Create a new detached tmux session using the user's default shell.
 
         Idempotent: does nothing if session already exists.
+        If env is provided, those variables are set in the tmux session.
         """
         if self.session_exists(session_name):
+            # Still update env vars on existing sessions
+            if env:
+                for key, value in env.items():
+                    self._run("set-environment", "-t", session_name, key, value)
             return
         shell = self._default_shell()
         self._run("new-session", "-d", "-s", session_name, shell)
+        if env:
+            for key, value in env.items():
+                self._run("set-environment", "-t", session_name, key, value)
 
     def kill_session(self, session_name: str) -> None:
         """Kill a tmux session. Does nothing if it doesn't exist."""

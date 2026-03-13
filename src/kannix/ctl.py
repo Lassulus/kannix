@@ -1,0 +1,162 @@
+"""kannix-ctl — CLI tool for managing tickets from within tmux sessions."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.request
+from urllib.error import HTTPError, URLError
+
+
+def _get_env() -> tuple[str, str, str]:
+    """Read required env vars, exit if missing."""
+    url = os.environ.get("KANNIX_URL", "")
+    token = os.environ.get("KANNIX_TOKEN", "")
+    ticket_id = os.environ.get("KANNIX_TICKET_ID", "")
+    if not url or not token:
+        print(
+            "Error: KANNIX_URL and KANNIX_TOKEN must be set.\n"
+            "These are normally set automatically in kannix tmux sessions.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return url, token, ticket_id
+
+
+def _http_request(
+    url: str, *, method: str = "GET", token: str, data: dict[str, object] | None = None
+) -> tuple[int, str]:
+    """Make an HTTP request. Returns (status_code, response_body)."""
+    headers = {"Authorization": f"Bearer {token}"}
+    body = None
+    if data is not None:
+        body = json.dumps(data).encode()
+        headers["Content-Type"] = "application/json"
+
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return resp.status, resp.read().decode()
+    except HTTPError as e:
+        return e.code, e.read().decode()
+    except URLError as e:
+        print(f"Error: Could not connect to {url}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_get(args: argparse.Namespace) -> None:
+    """Get current ticket info."""
+    url, token, ticket_id = _get_env()
+    if not ticket_id:
+        print("Error: KANNIX_TICKET_ID not set.", file=sys.stderr)
+        sys.exit(1)
+    status, body = _http_request(f"{url}/api/tickets/{ticket_id}", token=token)
+    if status != 200:
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps(json.loads(body), indent=2))
+
+
+def _cmd_set(args: argparse.Namespace) -> None:
+    """Update ticket fields."""
+    url, token, ticket_id = _get_env()
+    if not ticket_id:
+        print("Error: KANNIX_TICKET_ID not set.", file=sys.stderr)
+        sys.exit(1)
+    data: dict[str, object] = {}
+    if args.title is not None:
+        data["title"] = args.title
+    if args.description is not None:
+        data["description"] = args.description
+    if not data:
+        print("Error: provide --title and/or --description", file=sys.stderr)
+        sys.exit(1)
+    status, body = _http_request(
+        f"{url}/api/tickets/{ticket_id}", method="PUT", token=token, data=data
+    )
+    if status != 200:
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps(json.loads(body), indent=2))
+
+
+def _cmd_move(args: argparse.Namespace) -> None:
+    """Move ticket to a column."""
+    url, token, ticket_id = _get_env()
+    if not ticket_id:
+        print("Error: KANNIX_TICKET_ID not set.", file=sys.stderr)
+        sys.exit(1)
+    column = args.column
+    status, body = _http_request(
+        f"{url}/api/tickets/{ticket_id}/move",
+        method="POST",
+        token=token,
+        data={"column": column},
+    )
+    if status != 200:
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps(json.loads(body), indent=2))
+
+
+def _cmd_list_columns(args: argparse.Namespace) -> None:
+    """List available columns."""
+    url, token, _ticket_id = _get_env()
+    status, body = _http_request(f"{url}/api/columns", token=token)
+    if status != 200:
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    columns = json.loads(body)
+    for col in columns:
+        print(col)
+
+
+def _cmd_list_tickets(args: argparse.Namespace) -> None:
+    """List all tickets."""
+    url, token, _ticket_id = _get_env()
+    status, body = _http_request(f"{url}/api/tickets", token=token)
+    if status != 200:
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    tickets = json.loads(body)
+    for t in tickets:
+        marker = " *" if t["id"] == os.environ.get("KANNIX_TICKET_ID") else ""
+        print(f"[{t['column']}] {t['title']} ({t['id'][:8]}){marker}")
+
+
+def main() -> None:
+    """Entry point for kannix-ctl."""
+    parser = argparse.ArgumentParser(
+        prog="kannix-ctl",
+        description="Manage kannix tickets from the terminal.",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("get", help="Show current ticket info")
+
+    set_parser = sub.add_parser("set", help="Update ticket fields")
+    set_parser.add_argument("--title", help="New title")
+    set_parser.add_argument("--description", help="New description")
+
+    move_parser = sub.add_parser("move", help="Move ticket to a column")
+    move_parser.add_argument("column", help="Target column name")
+
+    sub.add_parser("list-columns", help="List available columns")
+    sub.add_parser("list-tickets", help="List all tickets")
+
+    args = parser.parse_args()
+
+    commands = {
+        "get": _cmd_get,
+        "set": _cmd_set,
+        "move": _cmd_move,
+        "list-columns": _cmd_list_columns,
+        "list-tickets": _cmd_list_tickets,
+    }
+    commands[args.command](args)
+
+
+if __name__ == "__main__":
+    main()

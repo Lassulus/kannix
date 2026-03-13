@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 kannix = "kannix.main:main"
+kannix-ctl = "kannix.ctl:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

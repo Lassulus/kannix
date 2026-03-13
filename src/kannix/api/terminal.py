@@ -46,9 +46,16 @@ def create_terminal_router(deps: AppDeps, tmux: TmuxManager) -> APIRouter:
             await websocket.close(code=4004, reason="Ticket not found")
             return
 
-        # Ensure tmux session exists
-        if not tmux.session_exists(ticket_id):
-            tmux.create_session(ticket_id)
+        # Ensure tmux session exists with env vars for kannix-ctl
+        host = deps.config.server.host
+        if host == "0.0.0.0":
+            host = "127.0.0.1"
+        kannix_env = {
+            "KANNIX_URL": f"http://{host}:{deps.config.server.port}",
+            "KANNIX_TOKEN": token,
+            "KANNIX_TICKET_ID": ticket_id,
+        }
+        tmux.create_session(ticket_id, env=kannix_env)
 
         # Attach to tmux via pty
         master_fd, child_pid = tmux.attach_pty(ticket_id)

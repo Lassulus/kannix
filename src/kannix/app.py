@@ -43,6 +43,10 @@ def create_app(
         app.include_router(create_auth_router(deps), prefix="/api/auth")
         app.include_router(create_admin_router(deps), prefix="/api/admin")
         app.include_router(create_tickets_router(deps), prefix="/api/tickets")
+
+        from kannix.api.columns import create_columns_router
+
+        app.include_router(create_columns_router(deps), prefix="/api")
         app.include_router(create_views_router(deps))
         app.include_router(create_htmx_router(deps), prefix="/htmx")
 
