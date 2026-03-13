@@ -8,6 +8,11 @@ from typing import TYPE_CHECKING
 
 from kannix.state import TicketState
 
+if TYPE_CHECKING:
+    from kannix.config import KannixConfig
+    from kannix.hooks import HookExecutor
+    from kannix.state import StateManager
+
 
 class _Unset(enum.Enum):
     """Sentinel for unset optional fields."""
@@ -17,20 +22,22 @@ class _Unset(enum.Enum):
 
 UNSET = _Unset.UNSET
 
-if TYPE_CHECKING:
-    from kannix.config import KannixConfig
-    from kannix.state import StateManager
-
 
 class TicketManager:
     """Manages ticket CRUD operations."""
 
-    def __init__(self, state_manager: StateManager, config: KannixConfig) -> None:
+    def __init__(
+        self,
+        state_manager: StateManager,
+        config: KannixConfig,
+        hook_executor: HookExecutor | None = None,
+    ) -> None:
         self._state = state_manager
         self._config = config
+        self._hooks = hook_executor
 
     def create(self, title: str, description: str) -> TicketState:
-        """Create a new ticket in the first column."""
+        """Create a new ticket in the first column (sync, no hooks)."""
         state = self._state.load()
         ticket = TicketState(
             id=uuid.uuid4().hex,
@@ -41,6 +48,17 @@ class TicketManager:
         )
         state.tickets[ticket.id] = ticket
         self._state.save(state)
+        return ticket
+
+    async def create_async(self, title: str, description: str) -> TicketState:
+        """Create a new ticket and run on_create hook."""
+        ticket = self.create(title, description)
+        if self._hooks is not None:
+            await self._hooks.on_create(
+                ticket_id=ticket.id,
+                ticket_title=ticket.title,
+                ticket_column=ticket.column,
+            )
         return ticket
 
     def get(self, ticket_id: str) -> TicketState | None:
@@ -79,7 +97,7 @@ class TicketManager:
         return ticket
 
     def delete(self, ticket_id: str) -> bool:
-        """Delete a ticket. Returns True if deleted, False if not found."""
+        """Delete a ticket (sync, no hooks). Returns True if deleted."""
         state = self._state.load()
         if ticket_id not in state.tickets:
             return False
@@ -87,8 +105,24 @@ class TicketManager:
         self._state.save(state)
         return True
 
+    async def delete_async(self, ticket_id: str) -> bool:
+        """Delete a ticket and run on_delete hook."""
+        state = self._state.load()
+        ticket = state.tickets.get(ticket_id)
+        if ticket is None:
+            return False
+        del state.tickets[ticket_id]
+        self._state.save(state)
+        if self._hooks is not None:
+            await self._hooks.on_delete(
+                ticket_id=ticket.id,
+                ticket_title=ticket.title,
+                ticket_column=ticket.column,
+            )
+        return True
+
     def move(self, ticket_id: str, column: str) -> TicketState | None:
-        """Move a ticket to a different column.
+        """Move a ticket (sync, no hooks).
 
         Raises:
             ValueError: If the column is not valid.
@@ -104,4 +138,32 @@ class TicketManager:
         ticket = ticket.model_copy(update={"column": column})
         state.tickets[ticket_id] = ticket
         self._state.save(state)
+        return ticket
+
+    async def move_async(self, ticket_id: str, column: str) -> TicketState | None:
+        """Move a ticket and run on_move hook.
+
+        Raises:
+            ValueError: If the column is not valid.
+        """
+        if column not in self._config.columns:
+            raise ValueError(f"Invalid column: {column}")
+
+        state = self._state.load()
+        ticket = state.tickets.get(ticket_id)
+        if ticket is None:
+            return None
+
+        old_column = ticket.column
+        ticket = ticket.model_copy(update={"column": column})
+        state.tickets[ticket_id] = ticket
+        self._state.save(state)
+
+        if self._hooks is not None:
+            await self._hooks.on_move(
+                ticket_id=ticket.id,
+                ticket_title=ticket.title,
+                from_column=old_column,
+                to_column=column,
+            )
         return ticket
