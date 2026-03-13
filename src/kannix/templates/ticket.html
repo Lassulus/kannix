@@ -34,13 +34,18 @@
     const fg = style.getPropertyValue('--text-primary').trim() || '#e0e0e0';
     const cursor = style.getPropertyValue('--accent').trim() || '#e94560';
 
+    // Size terminal to fill remaining viewport
+    var container = document.getElementById('terminal-container');
+    var rect = container.getBoundingClientRect();
+    container.style.height = Math.max(200, window.innerHeight - rect.top - 16) + 'px';
+
     const term = new Terminal({
         cursorBlink: true,
         theme: { background: bg, foreground: fg, cursor: cursor },
     });
     const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
-    term.open(document.getElementById('terminal-container'));
+    term.open(container);
     fitAddon.fit();
 
     const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -73,6 +78,9 @@
     });
 
     window.addEventListener('resize', function() { fitAddon.fit(); });
+
+    // Refit xterm when container is resized via CSS resize handle
+    new ResizeObserver(function() { fitAddon.fit(); }).observe(container);
 
     ws.onclose = function() {
         term.write('\r\n\x1b[31m[Connection closed. Reconnecting in 3s...]\x1b[0m\r\n');

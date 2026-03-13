@@ -117,11 +117,12 @@ form.login-form label { display: block; margin-top: 0.75rem; }
 
 /* Terminal */
 #terminal-container {
-    width: 100%;
-    height: 500px;
     background: #000;
     border-radius: 8px;
     overflow: hidden;
+    resize: both;
+    min-height: 200px;
+    min-width: 300px;
 }
 
 /* Ticket detail form */
