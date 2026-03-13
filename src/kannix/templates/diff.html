@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Diff — {{ ticket.title }}{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="toolbar">
+        <h1>
+            <a href="/ticket/{{ ticket.id }}" style="text-decoration: none; color: var(--accent);">← {{ ticket.title }}</a>
+        </h1>
+        <span class="meta">{{ ticket.column }} · {{ ticket.id[:8] }}</span>
+    </div>
+
+    {% if not assigned_repos %}
+    <p style="color: var(--text-muted);">No repos assigned to this ticket.</p>
+    {% else %}
+    <div class="diff-tabs" style="display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 2px solid var(--border);">
+        {% for repo in assigned_repos %}
+        <button class="diff-tab {% if loop.first %}active{% endif %}"
+                onclick="showDiffTab('{{ repo.id }}')"
+                id="tab-{{ repo.id }}"
+                style="padding: 0.5rem 1rem; border: none; background: {% if loop.first %}var(--bg-secondary){% else %}transparent{% endif %}; color: var(--text-primary); cursor: pointer; border-radius: 4px 4px 0 0; font-size: 0.9rem;">
+            {{ repo.name }}
+        </button>
+        {% endfor %}
+    </div>
+
+    {% for repo in assigned_repos %}
+    <div class="diff-content" id="diff-content-{{ repo.id }}" style="{% if not loop.first %}display: none;{% endif %}">
+        {% set diff = diffs[repo.id] %}
+        {% if diff %}
+        <div id="diff-container-{{ repo.id }}"></div>
+        {% else %}
+        <p style="color: var(--text-muted);">No changes on this branch yet.</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+
+<link rel="stylesheet" href="/static/vendor/diff2html.min.css">
+<script src="/static/vendor/diff2html-ui.min.js"></script>
+<script>
+var diffs = {{ diffs_json | safe }};
+
+// Render diffs
+Object.keys(diffs).forEach(function(repoId) {
+    if (!diffs[repoId]) return;
+    var el = document.getElementById('diff-container-' + repoId);
+    if (!el) return;
+    var ui = new Diff2HtmlUI(el, diffs[repoId], {
+        drawFileList: true,
+        fileListToggle: true,
+        fileListStartVisible: true,
+        fileContentToggle: true,
+        matching: 'lines',
+        outputFormat: 'side-by-side',
+        synchronisedScroll: true,
+        highlight: true,
+        renderNothingWhenEmpty: false,
+    });
+    ui.draw();
+});
+
+function showDiffTab(repoId) {
+    document.querySelectorAll('.diff-content').forEach(function(el) { el.style.display = 'none'; });
+    document.querySelectorAll('.diff-tab').forEach(function(el) {
+        el.style.background = 'transparent';
+        el.classList.remove('active');
+    });
+    var content = document.getElementById('diff-content-' + repoId);
+    if (content) content.style.display = 'block';
+    var tab = document.getElementById('tab-' + repoId);
+    if (tab) { tab.style.background = 'var(--bg-secondary)'; tab.classList.add('active'); }
+}
+</script>
+{% endblock %}

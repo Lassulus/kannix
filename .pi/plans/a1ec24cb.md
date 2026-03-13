@@ -23,12 +23,12 @@
     {
       "id": 4,
       "text": "M7.4: Repo API endpoints — CRUD /api/repos (list, create via clone URL, delete), GET /api/repos/{id}. Auth required. TDD.",
-      "done": false
+      "done": true
     },
     {
       "id": 5,
       "text": "M7.5: Repo management UI — /repos page: list registered repos, form to clone new repo by URL, delete button. HTMX partials. TDD: page renders, form works.",
-      "done": false
+      "done": true
     },
     {
       "id": 6,

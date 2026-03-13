@@ -1,0 +1,26 @@
+{% if diff %}
+<div id="diff-container-{{ repo_id }}"></div>
+<link rel="stylesheet" href="/static/vendor/diff2html.min.css">
+<script src="/static/vendor/diff2html-ui.min.js"></script>
+<script>
+(function() {
+    var diffString = {{ diff | tojson }};
+    var targetElement = document.getElementById('diff-container-{{ repo_id }}');
+    var configuration = {
+        drawFileList: true,
+        fileListToggle: true,
+        fileListStartVisible: true,
+        fileContentToggle: true,
+        matching: 'lines',
+        outputFormat: 'side-by-side',
+        synchronisedScroll: true,
+        highlight: true,
+        renderNothingWhenEmpty: false,
+    };
+    var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
+    diff2htmlUi.draw();
+})();
+</script>
+{% else %}
+<p style="color: var(--text-muted);">No changes yet.</p>
+{% endif %}

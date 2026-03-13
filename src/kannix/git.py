@@ -159,16 +159,34 @@ class GitManager:
 
         repo_path = self._repos_dir / f"{repo.name}.git"
 
-        # Create worktree with new branch from default branch
-        _run_git(
-            "worktree",
-            "add",
-            "-b",
-            branch,
-            str(wt_path),
-            repo.default_branch,
+        # Check if branch already exists (re-assignment)
+        branch_check = _run_git(
+            "show-ref",
+            "--verify",
+            f"refs/heads/{branch}",
             cwd=repo_path,
+            check=False,
         )
+        if branch_check.returncode == 0:
+            # Branch exists, reuse it
+            _run_git(
+                "worktree",
+                "add",
+                str(wt_path),
+                branch,
+                cwd=repo_path,
+            )
+        else:
+            # Create worktree with new branch from default branch
+            _run_git(
+                "worktree",
+                "add",
+                "-b",
+                branch,
+                str(wt_path),
+                repo.default_branch,
+                cwd=repo_path,
+            )
 
         # Set user config in worktree for commits
         _run_git("config", "user.email", "kannix@localhost", cwd=wt_path)

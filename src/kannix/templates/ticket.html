@@ -21,7 +21,14 @@
         </form>
         <div id="ticket-info"></div>
     </div>
-    <h2 style="margin-bottom: 0.5rem;">Terminal</h2>
+    {% if git_enabled %}
+    <h2 style="margin-bottom: 0.5rem;">Repositories</h2>
+    <div id="repos-section">
+        {% include "partials/ticket_repos.html" %}
+    </div>
+    {% endif %}
+
+    <h2 style="margin-bottom: 0.5rem; margin-top: 1rem;">Terminal</h2>
     <div id="terminal-container"></div>
 </div>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">

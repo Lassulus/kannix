@@ -100,10 +100,24 @@ def create_views_router(deps: AppDeps) -> APIRouter:
         ticket = ticket_mgr_local.get(ticket_id)
         if ticket is None:
             return HTMLResponse("Ticket not found", status_code=404)
+
+        # Get repo info for assignment UI
+        all_repos = deps.git_manager.list_repos() if deps.git_manager else []
+        assigned_repos = [r for r in all_repos if r.id in ticket.repos]
+        unassigned_repos = [r for r in all_repos if r.id not in ticket.repos]
+        git_enabled = deps.git_manager is not None
+
         return templates.TemplateResponse(
             request,
             "ticket.html",
-            {"ticket": ticket, "token": token, "theme": _get_theme(theme)},
+            {
+                "ticket": ticket,
+                "token": token,
+                "theme": _get_theme(theme),
+                "assigned_repos": assigned_repos,
+                "unassigned_repos": unassigned_repos,
+                "git_enabled": git_enabled,
+            },
         )
 
     @router.get("/board")
@@ -127,6 +141,44 @@ def create_views_router(deps: AppDeps) -> APIRouter:
                 "username": user.username,
                 "theme": current_theme,
                 "themes": AVAILABLE_THEMES,
+            },
+        )
+
+    @router.get("/ticket/{ticket_id}/diff")
+    async def ticket_diff_page(
+        request: Request,
+        ticket_id: str,
+        token: str | None = Cookie(default=None),
+        theme: str | None = Cookie(default=None),
+    ) -> Response:
+        user = _get_user(deps, token)
+        if user is None:
+            return RedirectResponse(url="/login", status_code=302)
+        ticket_mgr_local = TicketManager(deps.state_manager, deps.config)
+        ticket = ticket_mgr_local.get(ticket_id)
+        if ticket is None:
+            return HTMLResponse("Ticket not found", status_code=404)
+
+        all_repos = deps.git_manager.list_repos() if deps.git_manager else []
+        assigned_repos = [r for r in all_repos if r.id in ticket.repos]
+
+        # Get diffs for all assigned repos
+        import json as json_mod
+
+        diffs: dict[str, str] = {}
+        for repo in assigned_repos:
+            if deps.git_manager:
+                diffs[repo.id] = deps.git_manager.get_diff(repo.id, ticket_id)
+
+        return templates.TemplateResponse(
+            request,
+            "diff.html",
+            {
+                "ticket": ticket,
+                "assigned_repos": assigned_repos,
+                "diffs": diffs,
+                "diffs_json": json_mod.dumps(diffs),
+                "theme": _get_theme(theme),
             },
         )
 
@@ -154,6 +206,31 @@ def create_views_router(deps: AppDeps) -> APIRouter:
         )
 
     return router
+
+
+async def _render_repos_section(
+    request: Request,
+    ticket_id: str,
+    deps: AppDeps,
+    templates: Jinja2Templates,
+) -> Response:
+    """Render the repos section partial for a ticket."""
+    ticket_mgr = TicketManager(deps.state_manager, deps.config)
+    ticket = ticket_mgr.get(ticket_id)
+    if ticket is None:
+        return HTMLResponse("Ticket not found", status_code=404)
+    all_repos = deps.git_manager.list_repos() if deps.git_manager else []
+    assigned = [r for r in all_repos if r.id in ticket.repos]
+    unassigned = [r for r in all_repos if r.id not in ticket.repos]
+    return templates.TemplateResponse(
+        request,
+        "partials/ticket_repos.html",
+        {
+            "ticket": ticket,
+            "assigned_repos": assigned,
+            "unassigned_repos": unassigned,
+        },
+    )
 
 
 def create_htmx_router(deps: AppDeps) -> APIRouter:
@@ -243,6 +320,64 @@ def create_htmx_router(deps: AppDeps) -> APIRouter:
             "partials/repo_row.html",
             {"repo": repo},
         )
+
+    @router.post("/tickets/{ticket_id}/assign-repo")
+    async def assign_repo_htmx(
+        request: Request,
+        ticket_id: str,
+        repo_id: str = Form(),
+        token: str | None = Cookie(default=None),
+    ) -> Response:
+        user = _get_user(deps, token)
+        if user is None:
+            return RedirectResponse(url="/login", status_code=302)
+        if deps.git_manager is None:
+            return HTMLResponse("Git not configured", status_code=400)
+
+        # Add repo to ticket
+        state = deps.state_manager.load()
+        ticket_state = state.tickets.get(ticket_id)
+        if ticket_state is None:
+            return HTMLResponse("Ticket not found", status_code=404)
+        if repo_id not in ticket_state.repos:
+            ticket_state.repos.append(repo_id)
+            deps.state_manager.save(state)
+
+        # Create worktree
+        try:
+            deps.git_manager.create_worktree(repo_id, ticket_id, ticket_state.title)
+        except Exception as e:
+            return HTMLResponse(f"<div class='error'>Worktree failed: {e}</div>")
+
+        # Return updated repos section
+        return await _render_repos_section(request, ticket_id, deps, templates)
+
+    @router.post("/tickets/{ticket_id}/unassign-repo")
+    async def unassign_repo_htmx(
+        request: Request,
+        ticket_id: str,
+        repo_id: str = Form(),
+        token: str | None = Cookie(default=None),
+    ) -> Response:
+        user = _get_user(deps, token)
+        if user is None:
+            return RedirectResponse(url="/login", status_code=302)
+        if deps.git_manager is None:
+            return HTMLResponse("Git not configured", status_code=400)
+
+        # Remove repo from ticket
+        state = deps.state_manager.load()
+        ticket_state = state.tickets.get(ticket_id)
+        if ticket_state is None:
+            return HTMLResponse("Ticket not found", status_code=404)
+        if repo_id in ticket_state.repos:
+            ticket_state.repos.remove(repo_id)
+            deps.state_manager.save(state)
+
+        # Delete worktree
+        deps.git_manager.delete_worktree(repo_id, ticket_id)
+
+        return await _render_repos_section(request, ticket_id, deps, templates)
 
     @router.delete("/repos/{repo_id}")
     async def delete_repo_htmx(

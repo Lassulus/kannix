@@ -1,0 +1,39 @@
+{% if assigned_repos %}
+<div style="margin-bottom: 0.75rem;">
+    {% for repo in assigned_repos %}
+    <div class="ticket-card" style="display: flex; justify-content: space-between; align-items: center; border-left-color: #4ade80;">
+        <div>
+            <div class="title">{{ repo.name }}</div>
+            <div class="meta">branch: {{ repo.default_branch }}</div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <a href="/ticket/{{ ticket.id }}/diff" class="btn btn-sm">Diff</a>
+            <form hx-post="/htmx/tickets/{{ ticket.id }}/unassign-repo"
+                  hx-target="#repos-section"
+                  hx-swap="innerHTML"
+                  hx-confirm="Remove {{ repo.name }} and delete its worktree?">
+                <input type="hidden" name="repo_id" value="{{ repo.id }}">
+                <button type="submit" class="btn btn-sm" style="background: #666;">Remove</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if unassigned_repos %}
+<div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    {% for repo in unassigned_repos %}
+    <form hx-post="/htmx/tickets/{{ ticket.id }}/assign-repo"
+          hx-target="#repos-section"
+          hx-swap="innerHTML">
+        <input type="hidden" name="repo_id" value="{{ repo.id }}">
+        <button type="submit" class="btn btn-sm" style="background: var(--bg-input); color: var(--text-primary);">+ {{ repo.name }}</button>
+    </form>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if not assigned_repos and not unassigned_repos %}
+<p style="color: var(--text-muted); font-size: 0.9rem;">No repos registered. <a href="/repos" style="color: var(--accent);">Add repos</a></p>
+{% endif %}
