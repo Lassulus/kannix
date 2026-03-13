@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from kannix.tickets import TicketManager
 
@@ -19,6 +19,13 @@ class CreateTicketRequest(BaseModel):
 
     title: str
     description: str = ""
+
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Title must not be blank")
+        return v.strip()
 
 
 class UpdateTicketRequest(BaseModel):

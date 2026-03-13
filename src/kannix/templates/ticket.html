@@ -68,7 +68,8 @@
     window.addEventListener('resize', function() { fitAddon.fit(); });
 
     ws.onclose = function() {
-        term.write('\r\n\x1b[31m[Connection closed]\x1b[0m\r\n');
+        term.write('\r\n\x1b[31m[Connection closed. Reconnecting in 3s...]\x1b[0m\r\n');
+        setTimeout(function() { location.reload(); }, 3000);
     };
 })();
 </script>
