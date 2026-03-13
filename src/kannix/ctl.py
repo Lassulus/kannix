@@ -126,6 +126,30 @@ def _cmd_list_tickets(args: argparse.Namespace) -> None:
         print(f"[{t['column']}] {t['title']} ({t['id'][:8]}){marker}")
 
 
+def _cmd_clone_repo(args: argparse.Namespace) -> None:
+    """Clone a repo by URL."""
+    url, token, _ticket_id = _get_env()
+    data: dict[str, object] = {"url": args.url}
+    if args.name:
+        data["name"] = args.name
+    status, body = _http_request(f"{url}/api/repos", method="POST", token=token, data=data)
+    if status not in (200, 201):
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    repo = json.loads(body)
+    print(f"Cloned {repo['name']} ({repo['id'][:8]}) [{repo['default_branch']}]")
+
+
+def _cmd_delete_repo(args: argparse.Namespace) -> None:
+    """Delete a repo."""
+    url, token, _ticket_id = _get_env()
+    status, body = _http_request(f"{url}/api/repos/{args.repo_id}", method="DELETE", token=token)
+    if status != 200:
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Deleted repo {args.repo_id[:8]}")
+
+
 def _cmd_list_repos(args: argparse.Namespace) -> None:
     """List all repos."""
     url, token, _ticket_id = _get_env()
@@ -200,6 +224,13 @@ def main() -> None:
 
     sub.add_parser("list-columns", help="List available columns")
     sub.add_parser("list-tickets", help="List all tickets")
+    clone_parser = sub.add_parser("clone-repo", help="Clone a repo by URL")
+    clone_parser.add_argument("url", help="Git clone URL")
+    clone_parser.add_argument("--name", help="Custom name (default: derived from URL)")
+
+    delete_repo_parser = sub.add_parser("delete-repo", help="Delete a repo")
+    delete_repo_parser.add_argument("repo_id", help="Repo ID")
+
     sub.add_parser("list-repos", help="List all repos")
 
     assign_parser = sub.add_parser("assign-repo", help="Assign a repo to current ticket")
@@ -218,6 +249,8 @@ def main() -> None:
         "move": _cmd_move,
         "list-columns": _cmd_list_columns,
         "list-tickets": _cmd_list_tickets,
+        "clone-repo": _cmd_clone_repo,
+        "delete-repo": _cmd_delete_repo,
         "list-repos": _cmd_list_repos,
         "assign-repo": _cmd_assign_repo,
         "unassign-repo": _cmd_unassign_repo,

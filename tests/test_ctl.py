@@ -429,6 +429,109 @@ def test_ctl_worktrees_none(
         assert "No worktrees" in err
 
 
+def test_ctl_clone_repo(
+    auth: AuthManager,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """kannix-ctl clone-repo clones a repo by URL."""
+    user = auth.create_user("alice", "pass", is_admin=False)
+
+    env = {
+        "KANNIX_URL": "http://test",
+        "KANNIX_TOKEN": user.token,
+        "KANNIX_TICKET_ID": "dummy",
+    }
+    with (
+        patch.dict("os.environ", env),
+        patch("sys.argv", ["kannix-ctl", "clone-repo", "https://example.com/repo.git"]),
+        patch("kannix.ctl._http_request") as mock_req,
+    ):
+        mock_req.return_value = (
+            201,
+            json.dumps(
+                {
+                    "id": "abc123",
+                    "name": "repo",
+                    "url": "https://example.com/repo.git",
+                    "path": "/tmp/repos/repo.git",
+                    "default_branch": "main",
+                }
+            ),
+        )
+        ctl_main()
+        out = capsys.readouterr().out
+        assert "repo" in out
+        assert "main" in out
+        # Verify the HTTP call
+        mock_req.assert_called_once()
+        call_args = mock_req.call_args
+        assert "/api/repos" in call_args[0][0]
+        assert call_args[1]["method"] == "POST"
+
+
+def test_ctl_clone_repo_with_name(
+    auth: AuthManager,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """kannix-ctl clone-repo --name sets custom name."""
+    user = auth.create_user("alice", "pass", is_admin=False)
+
+    env = {
+        "KANNIX_URL": "http://test",
+        "KANNIX_TOKEN": user.token,
+        "KANNIX_TICKET_ID": "dummy",
+    }
+    with (
+        patch.dict("os.environ", env),
+        patch(
+            "sys.argv",
+            ["kannix-ctl", "clone-repo", "https://example.com/repo.git", "--name", "myrepo"],
+        ),
+        patch("kannix.ctl._http_request") as mock_req,
+    ):
+        mock_req.return_value = (
+            201,
+            json.dumps(
+                {
+                    "id": "abc123",
+                    "name": "myrepo",
+                    "url": "https://example.com/repo.git",
+                    "path": "/tmp/repos/myrepo.git",
+                    "default_branch": "main",
+                }
+            ),
+        )
+        ctl_main()
+        out = capsys.readouterr().out
+        assert "myrepo" in out
+        # Verify name was sent
+        call_data = mock_req.call_args[1]["data"]
+        assert call_data["name"] == "myrepo"
+
+
+def test_ctl_delete_repo(
+    auth: AuthManager,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """kannix-ctl delete-repo deletes a repo."""
+    user = auth.create_user("alice", "pass", is_admin=False)
+
+    env = {
+        "KANNIX_URL": "http://test",
+        "KANNIX_TOKEN": user.token,
+        "KANNIX_TICKET_ID": "dummy",
+    }
+    with (
+        patch.dict("os.environ", env),
+        patch("sys.argv", ["kannix-ctl", "delete-repo", "abc123"]),
+        patch("kannix.ctl._http_request") as mock_req,
+    ):
+        mock_req.return_value = (200, json.dumps({"status": "deleted"}))
+        ctl_main()
+        out = capsys.readouterr().out
+        assert "deleted" in out.lower() or "Deleted" in out
+
+
 def test_ctl_missing_env_vars(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
