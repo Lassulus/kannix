@@ -233,6 +233,33 @@ def test_get_worktree_path(
 
 
 @pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_reassign_worktree_reuses_branch(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """Re-creating a worktree after deletion reuses the existing branch."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+
+    # Create, make a commit, delete, re-create
+    wt_path = gm.create_worktree(repo.id, "ticket123", "Test")
+    (wt_path / "new.txt").write_text("hello\n")
+    subprocess.run(["git", "-C", str(wt_path), "add", "."], capture_output=True, check=True)
+    subprocess.run(
+        ["git", "-C", str(wt_path), "commit", "-m", "change"],
+        capture_output=True,
+        check=True,
+    )
+    gm.delete_worktree(repo.id, "ticket123")
+    assert not wt_path.exists()
+
+    # Re-create — should succeed and retain the commit
+    wt_path2 = gm.create_worktree(repo.id, "ticket123", "Test")
+    assert wt_path2.exists()
+    assert (wt_path2 / "new.txt").exists()  # commit preserved
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
 def test_slugify_title() -> None:
     """Branch names are properly slugified."""
     from kannix.git import _slugify

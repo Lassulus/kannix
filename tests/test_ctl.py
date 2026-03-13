@@ -296,6 +296,139 @@ def test_ctl_list_tickets(
         assert "Task 2" in out
 
 
+def test_ctl_list_repos(
+    auth: AuthManager,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """kannix-ctl list-repos prints all repos."""
+    user = auth.create_user("alice", "pass", is_admin=False)
+
+    env = {
+        "KANNIX_URL": "http://test",
+        "KANNIX_TOKEN": user.token,
+        "KANNIX_TICKET_ID": "dummy",
+    }
+    with (
+        patch.dict("os.environ", env),
+        patch("sys.argv", ["kannix-ctl", "list-repos"]),
+        patch("kannix.ctl._http_request") as mock_req,
+    ):
+        mock_req.return_value = (
+            200,
+            json.dumps(
+                [
+                    {
+                        "id": "repo1",
+                        "name": "myrepo",
+                        "url": "https://example.com/repo.git",
+                        "path": "/tmp/repos/myrepo.git",
+                        "default_branch": "main",
+                    },
+                ]
+            ),
+        )
+        ctl_main()
+        out = capsys.readouterr().out
+        assert "myrepo" in out
+        assert "main" in out
+
+
+def test_ctl_assign_repo(
+    auth: AuthManager,
+    ticket_mgr: TicketManager,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """kannix-ctl assign-repo assigns a repo to current ticket."""
+    user = auth.create_user("alice", "pass", is_admin=False)
+    ticket = ticket_mgr.create("Task", "desc")
+
+    env = {
+        "KANNIX_URL": "http://test",
+        "KANNIX_TOKEN": user.token,
+        "KANNIX_TICKET_ID": ticket.id,
+    }
+    with (
+        patch.dict("os.environ", env),
+        patch("sys.argv", ["kannix-ctl", "assign-repo", "repo123"]),
+        patch("kannix.ctl._http_request") as mock_req,
+    ):
+        mock_req.return_value = (200, json.dumps({"status": "assigned"}))
+        ctl_main()
+        out = capsys.readouterr().out
+        assert "assigned" in out
+        # Verify the HTTP call
+        mock_req.assert_called_once()
+        call_args = mock_req.call_args
+        assert "/api/repos/assign" in call_args[0][0]
+
+
+def test_ctl_unassign_repo(
+    auth: AuthManager,
+    ticket_mgr: TicketManager,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """kannix-ctl unassign-repo removes a repo from current ticket."""
+    user = auth.create_user("alice", "pass", is_admin=False)
+    ticket = ticket_mgr.create("Task", "desc")
+
+    env = {
+        "KANNIX_URL": "http://test",
+        "KANNIX_TOKEN": user.token,
+        "KANNIX_TICKET_ID": ticket.id,
+    }
+    with (
+        patch.dict("os.environ", env),
+        patch("sys.argv", ["kannix-ctl", "unassign-repo", "repo123"]),
+        patch("kannix.ctl._http_request") as mock_req,
+    ):
+        mock_req.return_value = (200, json.dumps({"status": "unassigned"}))
+        ctl_main()
+        out = capsys.readouterr().out
+        assert "unassigned" in out
+
+
+def test_ctl_worktrees(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """kannix-ctl worktrees shows worktree env vars."""
+    env = {
+        "KANNIX_URL": "http://test",
+        "KANNIX_TOKEN": "tok",
+        "KANNIX_TICKET_ID": "tid",
+        "KANNIX_WORKTREE_MYREPO": "/tmp/wt/myrepo",
+        "KANNIX_WORKTREE_OTHER": "/tmp/wt/other",
+    }
+    with (
+        patch.dict("os.environ", env, clear=False),
+        patch("sys.argv", ["kannix-ctl", "worktrees"]),
+    ):
+        ctl_main()
+        out = capsys.readouterr().out
+        assert "myrepo" in out
+        assert "/tmp/wt/myrepo" in out
+        assert "other" in out
+
+
+def test_ctl_worktrees_none(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """kannix-ctl worktrees shows message when no worktrees."""
+    env = {
+        "KANNIX_URL": "http://test",
+        "KANNIX_TOKEN": "tok",
+        "KANNIX_TICKET_ID": "tid",
+    }
+    # Clear any existing KANNIX_WORKTREE_ vars
+    clean_env = {k: v for k, v in env.items()}
+    with (
+        patch.dict("os.environ", clean_env, clear=True),
+        patch("sys.argv", ["kannix-ctl", "worktrees"]),
+    ):
+        ctl_main()
+        err = capsys.readouterr().err
+        assert "No worktrees" in err
+
+
 def test_ctl_missing_env_vars(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

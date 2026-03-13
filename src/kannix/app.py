@@ -19,12 +19,14 @@ from kannix.tmux import TmuxManager
 
 if TYPE_CHECKING:
     from kannix.config import KannixConfig
+    from kannix.git import GitManager
     from kannix.state import StateManager
 
 
 def create_app(
     config: KannixConfig | None = None,
     state_manager: StateManager | None = None,
+    git_manager: GitManager | None = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(title="Kannix", version="0.1.0")
@@ -33,16 +35,15 @@ def create_app(
     if config is not None and state_manager is not None:
         auth_manager = AuthManager(state_manager)
 
-        # Set up git manager if configured
-        git_manager = None
-        if config.repos_dir and config.worktree_dir:
-            from kannix.git import GitManager
+        # Set up git manager if configured (use passed-in or create from config)
+        if git_manager is None and config.repos_dir and config.worktree_dir:
+            from kannix.git import GitManager as _GitManager
 
             repos_dir = Path(config.repos_dir)
             worktree_dir = Path(config.worktree_dir)
             repos_dir.mkdir(parents=True, exist_ok=True)
             worktree_dir.mkdir(parents=True, exist_ok=True)
-            git_manager = GitManager(
+            git_manager = _GitManager(
                 repos_dir=repos_dir,
                 worktree_dir=worktree_dir,
                 state_manager=state_manager,
