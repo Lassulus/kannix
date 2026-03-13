@@ -10,6 +10,13 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
+def _shell_quote(s: str) -> str:
+    """Quote a string for safe shell use."""
+    import shlex
+
+    return shlex.quote(s)
+
+
 class TmuxManager:
     """Manages tmux sessions for tickets."""
 
@@ -38,19 +45,29 @@ class TmuxManager:
         """Create a new detached tmux session using the user's default shell.
 
         Idempotent: does nothing if session already exists.
-        If env is provided, those variables are set in the tmux session.
+        If env is provided, variables are passed via -e so the initial
+        shell inherits them.
         """
         if self.session_exists(session_name):
-            # Still update env vars on existing sessions
+            # Update env for future panes + export into running shell
             if env:
                 for key, value in env.items():
                     self._run("set-environment", "-t", session_name, key, value)
+                    # Also inject into running shell
+                    self._run(
+                        "send-keys",
+                        "-t",
+                        session_name,
+                        f" export {key}={_shell_quote(value)}",
+                        "Enter",
+                    )
             return
         shell = self._default_shell()
-        self._run("new-session", "-d", "-s", session_name, shell)
+        env_args: list[str] = []
         if env:
             for key, value in env.items():
-                self._run("set-environment", "-t", session_name, key, value)
+                env_args.extend(["-e", f"{key}={value}"])
+        self._run("new-session", "-d", "-s", session_name, *env_args, shell)
 
     def kill_session(self, session_name: str) -> None:
         """Kill a tmux session. Does nothing if it doesn't exist."""
