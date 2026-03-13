@@ -20,6 +20,17 @@ class TicketState(BaseModel, extra="ignore"):
     description: str
     column: str
     assigned_to: str | None
+    repos: list[str] = []
+
+
+class RepoState(BaseModel, extra="ignore"):
+    """Persisted git repository data."""
+
+    id: str
+    name: str
+    url: str
+    path: str
+    default_branch: str = "main"
 
 
 class UserState(BaseModel, extra="ignore"):
@@ -37,6 +48,7 @@ class AppState(BaseModel, extra="ignore"):
 
     tickets: dict[str, TicketState] = {}
     users: dict[str, UserState] = {}
+    repos: dict[str, RepoState] = {}
 
 
 class StateManager:

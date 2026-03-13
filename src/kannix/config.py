@@ -32,6 +32,8 @@ class KannixConfig(BaseModel):
     columns: list[str]
     hooks: HooksConfig = HooksConfig()
     server: ServerConfig = ServerConfig()
+    repos_dir: str | None = None
+    worktree_dir: str | None = None
 
     @field_validator("columns")
     @classmethod

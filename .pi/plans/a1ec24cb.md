@@ -8,7 +8,7 @@
     {
       "id": 1,
       "text": "M7.1: Vendor diff2html — add fetchurl flake inputs for diff2html JS+CSS, copy into static/vendor/ at build time, serve at /static/vendor/. Test: files served with correct content-type.",
-      "done": false
+      "done": true
     },
     {
       "id": 2,
