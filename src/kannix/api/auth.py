@@ -49,6 +49,19 @@ def create_auth_router(deps: AppDeps) -> APIRouter:
             is_admin=user.is_admin,
         )
 
+    @router.post("/setup", response_model=LoginResponse, status_code=201)
+    async def setup(body: LoginRequest) -> LoginResponse:
+        """Bootstrap: create first admin user. Only works when no users exist."""
+        state = deps.state_manager.load()
+        if state.users:
+            raise HTTPException(status_code=403, detail="Setup already complete")
+        user = deps.auth_manager.create_user(body.username, body.password, is_admin=True)
+        return LoginResponse(
+            username=user.username,
+            token=user.token,
+            is_admin=user.is_admin,
+        )
+
     @router.get("/me", response_model=MeResponse)
     async def me(
         authorization: str = Header(default=""),

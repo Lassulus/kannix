@@ -87,3 +87,26 @@ async def test_protected_endpoint_with_valid_token(client: AsyncClient, auth: Au
 async def test_protected_endpoint_with_invalid_token(client: AsyncClient):
     response = await client.get("/api/auth/me", headers={"Authorization": "Bearer bogus-token"})
     assert response.status_code == 401
+
+
+async def test_setup_creates_admin_when_no_users(client: AsyncClient):
+    """POST /api/auth/setup creates admin when no users exist."""
+    resp = await client.post(
+        "/api/auth/setup",
+        json={"username": "admin", "password": "s3cure!pass"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["username"] == "admin"
+    assert data["is_admin"] is True
+    assert "token" in data
+
+
+async def test_setup_fails_when_users_exist(client: AsyncClient, auth: AuthManager):
+    """POST /api/auth/setup fails when users already exist."""
+    auth.create_user("existing", "pass", is_admin=False)
+    resp = await client.post(
+        "/api/auth/setup",
+        json={"username": "admin", "password": "s3cure!pass"},
+    )
+    assert resp.status_code == 403
