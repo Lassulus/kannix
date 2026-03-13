@@ -138,6 +138,36 @@ def _cmd_list_repos(args: argparse.Namespace) -> None:
         print(f"{r['name']} ({r['id'][:8]}) — {r['url']} [{r['default_branch']}]")
 
 
+def _cmd_assign_repo(args: argparse.Namespace) -> None:
+    """Assign a repo to the current ticket."""
+    url, token, ticket_id = _get_env()
+    if not ticket_id:
+        print("Error: KANNIX_TICKET_ID not set.", file=sys.stderr)
+        sys.exit(1)
+    data = {"repo_id": args.repo_id, "ticket_id": ticket_id}
+    status, body = _http_request(f"{url}/api/repos/assign", method="POST", token=token, data=data)
+    if status not in (200, 201):
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Repo {args.repo_id[:8]} assigned to ticket {ticket_id[:8]}")
+
+
+def _cmd_unassign_repo(args: argparse.Namespace) -> None:
+    """Unassign a repo from the current ticket."""
+    url, token, ticket_id = _get_env()
+    if not ticket_id:
+        print("Error: KANNIX_TICKET_ID not set.", file=sys.stderr)
+        sys.exit(1)
+    data = {"repo_id": args.repo_id, "ticket_id": ticket_id}
+    status, body = _http_request(
+        f"{url}/api/repos/unassign", method="POST", token=token, data=data
+    )
+    if status != 200:
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Repo {args.repo_id[:8]} unassigned from ticket {ticket_id[:8]}")
+
+
 def _cmd_worktrees(args: argparse.Namespace) -> None:
     """Show worktree paths for current ticket."""
     _url, _token, _ticket_id = _get_env()
@@ -171,6 +201,13 @@ def main() -> None:
     sub.add_parser("list-columns", help="List available columns")
     sub.add_parser("list-tickets", help="List all tickets")
     sub.add_parser("list-repos", help="List all repos")
+
+    assign_parser = sub.add_parser("assign-repo", help="Assign a repo to current ticket")
+    assign_parser.add_argument("repo_id", help="Repo ID (or prefix)")
+
+    unassign_parser = sub.add_parser("unassign-repo", help="Unassign a repo from current ticket")
+    unassign_parser.add_argument("repo_id", help="Repo ID (or prefix)")
+
     sub.add_parser("worktrees", help="Show worktree paths for this ticket")
 
     args = parser.parse_args()
@@ -182,6 +219,8 @@ def main() -> None:
         "list-columns": _cmd_list_columns,
         "list-tickets": _cmd_list_tickets,
         "list-repos": _cmd_list_repos,
+        "assign-repo": _cmd_assign_repo,
+        "unassign-repo": _cmd_unassign_repo,
         "worktrees": _cmd_worktrees,
     }
     commands[args.command](args)

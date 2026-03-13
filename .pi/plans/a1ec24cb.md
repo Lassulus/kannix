@@ -1,7 +1,7 @@
 {
   "id": "a1ec24cb",
   "title": "Git integration — repos, worktrees, diff view",
-  "status": "draft",
+  "status": "completed",
   "created_at": "2026-03-13T12:37:16.680Z",
   "assigned_to_session": "3c9966dc-9e30-4a7d-90a5-b1a5ce8cccd0",
   "steps": [
@@ -48,7 +48,7 @@
     {
       "id": 9,
       "text": "M7.9: NixOS module updates — add repos_dir, worktree_dir options. Ensure git is on PATH in systemd service. Update package.nix to include vendored diff2html.",
-      "done": false
+      "done": true
     }
   ]
 }

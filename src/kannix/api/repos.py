@@ -18,6 +18,13 @@ class CloneRepoRequest(BaseModel):
     name: str | None = None
 
 
+class AssignRepoRequest(BaseModel):
+    """Assign/unassign repo request."""
+
+    repo_id: str
+    ticket_id: str
+
+
 class RepoResponse(BaseModel):
     """Repo response."""
 
@@ -103,6 +110,47 @@ def create_repos_router(deps: AppDeps) -> APIRouter:
             path=repo.path,
             default_branch=repo.default_branch,
         )
+
+    @router.post("/assign")
+    async def assign_repo(
+        body: AssignRepoRequest,
+        authorization: str = Header(default=""),
+    ) -> dict[str, str]:
+        _require_auth(deps, authorization)
+        if deps.git_manager is None:
+            raise HTTPException(status_code=400, detail="Git not configured")
+        state = deps.state_manager.load()
+        ticket_state = state.tickets.get(body.ticket_id)
+        if ticket_state is None:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+        if body.repo_id not in state.repos:
+            raise HTTPException(status_code=404, detail="Repo not found")
+        if body.repo_id not in ticket_state.repos:
+            ticket_state.repos.append(body.repo_id)
+            deps.state_manager.save(state)
+        try:
+            deps.git_manager.create_worktree(body.repo_id, body.ticket_id, ticket_state.title)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        return {"status": "assigned"}
+
+    @router.post("/unassign")
+    async def unassign_repo(
+        body: AssignRepoRequest,
+        authorization: str = Header(default=""),
+    ) -> dict[str, str]:
+        _require_auth(deps, authorization)
+        if deps.git_manager is None:
+            raise HTTPException(status_code=400, detail="Git not configured")
+        state = deps.state_manager.load()
+        ticket_state = state.tickets.get(body.ticket_id)
+        if ticket_state is None:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+        if body.repo_id in ticket_state.repos:
+            ticket_state.repos.remove(body.repo_id)
+            deps.state_manager.save(state)
+        deps.git_manager.delete_worktree(body.repo_id, body.ticket_id)
+        return {"status": "unassigned"}
 
     @router.delete("/{repo_id}")
     async def delete_repo(
