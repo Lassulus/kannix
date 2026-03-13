@@ -43,7 +43,7 @@
     {
       "id": 8,
       "text": "M7.8: Worktree paths in terminal — set KANNIX_WORKTREE_<REPO> env vars in tmux session so terminal has easy access to worktree paths. Update kannix-ctl with repo/worktree subcommands.",
-      "done": false
+      "done": true
     },
     {
       "id": 9,

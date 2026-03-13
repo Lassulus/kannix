@@ -6,26 +6,39 @@
 }:
 let
   cfg = config.services.kannix;
-  kannixPkg = pkgs.callPackage ./package.nix { };
+  kannixPkg = cfg.package;
 
   configFile = pkgs.writeText "kannix.json" (
-    builtins.toJSON {
-      columns = cfg.columns;
-      hooks = {
-        on_create = cfg.hooks.onCreate;
-        on_move = cfg.hooks.onMove;
-        on_delete = cfg.hooks.onDelete;
-      };
-      server = {
-        host = cfg.host;
-        port = cfg.port;
-      };
-    }
+    builtins.toJSON (
+      {
+        columns = cfg.columns;
+        hooks = {
+          on_create = cfg.hooks.onCreate;
+          on_move = cfg.hooks.onMove;
+          on_delete = cfg.hooks.onDelete;
+        };
+        server = {
+          host = cfg.host;
+          port = cfg.port;
+        };
+      }
+      // lib.optionalAttrs (cfg.reposDir != null) {
+        repos_dir = cfg.reposDir;
+      }
+      // lib.optionalAttrs (cfg.worktreeDir != null) {
+        worktree_dir = cfg.worktreeDir;
+      }
+    )
   );
 in
 {
   options.services.kannix = {
     enable = lib.mkEnableOption "Kannix kanban board with terminal sessions";
+
+    package = lib.mkOption {
+      type = lib.types.package;
+      description = "The kannix package to use.";
+    };
 
     host = lib.mkOption {
       type = lib.types.str;
@@ -88,6 +101,18 @@ in
       description = "Group to run the service as.";
     };
 
+    reposDir = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      description = "Directory for bare git repo clones. Enables git integration when set with worktreeDir.";
+    };
+
+    worktreeDir = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      description = "Directory for git worktrees. Enables git integration when set with reposDir.";
+    };
+
     openFirewall = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -108,6 +133,11 @@ in
       description = "Kannix - Kanban board with terminal sessions";
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
+
+      path = [
+        pkgs.tmux
+        pkgs.git
+      ];
 
       serviceConfig = {
         Type = "simple";
