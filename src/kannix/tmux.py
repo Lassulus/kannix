@@ -51,10 +51,6 @@ class TmuxManager:
         in that directory.
         """
         if self.session_exists(session_name):
-            # Update env for future panes + export into running shell
-            if env:
-                for key, value in env.items():
-                    self._run("set-environment", "-t", session_name, key, value)
             return
         shell = self._default_shell()
         env_args: list[str] = []
