@@ -75,6 +75,41 @@
             pythonEnv
             pkgs.ruff
             pkgs.tmux
+            (pkgs.writeShellScriptBin "kannix-dev" ''
+              set -e
+              export PYTHONPATH="$PWD/src:''${PYTHONPATH:-}"
+              export KANNIX_CONFIG="''${KANNIX_CONFIG:-dev-config.json}"
+              export KANNIX_STATE_DIR="''${KANNIX_STATE_DIR:-/tmp/kannix-dev}"
+              mkdir -p "$KANNIX_STATE_DIR"
+
+              # Seed admin user if needed
+              ${pythonEnv}/bin/python -c "
+              from pathlib import Path
+              from kannix.auth import AuthManager
+              from kannix.state import StateManager
+              import os
+              sd = os.environ['KANNIX_STATE_DIR']
+              sm = StateManager(Path(sd) / 'state.json')
+              auth = AuthManager(sm)
+              try:
+                  user = auth.create_user('admin', 'admin', is_admin=True)
+                  print(f'Created admin user, token: {user.token}')
+              except ValueError:
+                  print('Admin user already exists')
+              "
+
+              echo "Starting dev server with auto-reload..."
+              echo "  Config: $KANNIX_CONFIG"
+              echo "  State:  $KANNIX_STATE_DIR"
+              echo ""
+              exec ${pythonEnv}/bin/python -m uvicorn \
+                kannix.main:create_dev_app \
+                --factory \
+                --reload \
+                --reload-dir src \
+                --host 127.0.0.1 \
+                --port 9876
+            '')
           ];
 
           shellHook = ''
