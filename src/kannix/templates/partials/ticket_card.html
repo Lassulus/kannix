@@ -1,7 +1,9 @@
 <div class="ticket-card" data-ticket-id="{{ ticket.id }}">
-    <div class="title">{{ ticket.title }}</div>
-    <div class="meta">
-        {{ ticket.column }}
-        {% if ticket.assigned_to %} · {{ ticket.assigned_to }}{% endif %}
-    </div>
+    <a href="/ticket/{{ ticket.id }}" style="color: inherit; text-decoration: none;">
+        <div class="title">{{ ticket.title }}</div>
+        <div class="meta">
+            {{ ticket.column }}
+            {% if ticket.assigned_to %} · {{ ticket.assigned_to }}{% endif %}
+        </div>
+    </a>
 </div>

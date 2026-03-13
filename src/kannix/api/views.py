@@ -72,6 +72,25 @@ def create_views_router(deps: AppDeps) -> APIRouter:
         response.set_cookie("token", user.token, httponly=True)
         return response
 
+    @router.get("/ticket/{ticket_id}")
+    async def ticket_detail(
+        request: Request,
+        ticket_id: str,
+        token: str | None = Cookie(default=None),
+    ) -> Response:
+        user = _get_user(deps, token)
+        if user is None:
+            return RedirectResponse(url="/login", status_code=302)
+        ticket_mgr_local = TicketManager(deps.state_manager, deps.config)
+        ticket = ticket_mgr_local.get(ticket_id)
+        if ticket is None:
+            return HTMLResponse("Ticket not found", status_code=404)
+        return templates.TemplateResponse(
+            request,
+            "ticket.html",
+            {"ticket": ticket, "token": token},
+        )
+
     @router.get("/board")
     async def board(
         request: Request,

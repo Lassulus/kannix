@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ ticket.title }}{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="toolbar">
+        <h1>
+            <a href="/board" style="color: #e94560; text-decoration: none;">← Board</a>
+            &nbsp;/ {{ ticket.title }}
+        </h1>
+        <span class="meta">{{ ticket.column }} · {{ ticket.id[:8] }}</span>
+    </div>
+    <div style="margin-bottom: 1rem;">
+        <p>{{ ticket.description or "No description" }}</p>
+    </div>
+    <div id="terminal-container" style="width: 100%; height: 500px; background: #000; border-radius: 8px; overflow: hidden;"></div>
+</div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script>
+(function() {
+    const term = new Terminal({
+        cursorBlink: true,
+        theme: { background: '#0f3460', foreground: '#e0e0e0', cursor: '#e94560' },
+    });
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(document.getElementById('terminal-container'));
+    fitAddon.fit();
+
+    const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${location.host}/ws/terminal/{{ ticket.id }}?token={{ token }}`;
+    const ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
+
+    ws.onopen = function() {
+        ws.send(JSON.stringify({type: 'resize', cols: term.cols, rows: term.rows}));
+    };
+
+    ws.onmessage = function(evt) {
+        if (evt.data instanceof ArrayBuffer) {
+            term.write(new Uint8Array(evt.data));
+        } else {
+            term.write(evt.data);
+        }
+    };
+
+    term.onData(function(data) {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(new Blob([new TextEncoder().encode(data)]));
+        }
+    });
+
+    term.onResize(function(size) {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({type: 'resize', cols: size.cols, rows: size.rows}));
+        }
+    });
+
+    window.addEventListener('resize', function() { fitAddon.fit(); });
+
+    ws.onclose = function() {
+        term.write('\r\n\x1b[31m[Connection closed]\x1b[0m\r\n');
+    };
+})();
+</script>
+{% endblock %}

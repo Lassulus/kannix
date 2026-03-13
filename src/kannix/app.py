@@ -8,10 +8,12 @@ from fastapi import FastAPI
 
 from kannix.api.admin import create_admin_router
 from kannix.api.auth import create_auth_router
+from kannix.api.terminal import create_terminal_router
 from kannix.api.tickets import create_tickets_router
 from kannix.api.views import create_htmx_router, create_views_router
 from kannix.auth import AuthManager
 from kannix.deps import AppDeps
+from kannix.tmux import TmuxManager
 
 if TYPE_CHECKING:
     from kannix.config import KannixConfig
@@ -41,6 +43,10 @@ def create_app(
         app.include_router(create_tickets_router(deps), prefix="/api/tickets")
         app.include_router(create_views_router(deps))
         app.include_router(create_htmx_router(deps), prefix="/htmx")
+
+        # Terminal WebSocket
+        tmux = TmuxManager()
+        app.include_router(create_terminal_router(deps, tmux))
 
     @app.get("/health")
     async def health() -> dict[str, str]:
