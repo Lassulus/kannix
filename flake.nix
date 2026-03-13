@@ -26,6 +26,7 @@
             pydantic
             jinja2
             bcrypt
+            python-multipart
             pytest
             pytest-asyncio
             mypy

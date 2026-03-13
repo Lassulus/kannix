@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Board{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="toolbar">
+        <h1>Kannix Board</h1>
+        <span>{{ username }}</span>
+    </div>
+    <div class="board" id="board">
+        {% for col in columns %}
+        <div class="column" data-column="{{ col }}">
+            <div class="column-header">
+                <span>{{ col }}</span>
+                <span class="count">{{ tickets_by_column.get(col, [])|length }}</span>
+            </div>
+            {% if loop.first %}
+            <form class="create-form"
+                  hx-post="/htmx/tickets"
+                  hx-target="#ticket-list-{{ loop.index }}"
+                  hx-swap="beforeend">
+                <input type="text" name="title" placeholder="New ticket..." required>
+                <input type="hidden" name="description" value="">
+            </form>
+            {% endif %}
+            <div class="ticket-list" id="ticket-list-{{ loop.index }}" data-column="{{ col }}">
+                {% for ticket in tickets_by_column.get(col, []) %}
+                {% include "partials/ticket_card.html" %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<script>
+document.querySelectorAll('.ticket-list').forEach(el => {
+    new Sortable(el, {
+        group: 'kanban',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: function(evt) {
+            const ticketId = evt.item.dataset.ticketId;
+            const newColumn = evt.to.dataset.column;
+            htmx.ajax('POST', `/htmx/tickets/${ticketId}/move`,
+                {values: {column: newColumn}, target: evt.item, swap: 'outerHTML'});
+        }
+    });
+});
+</script>
+{% endblock %}
