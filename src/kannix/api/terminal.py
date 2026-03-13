@@ -68,8 +68,17 @@ def create_terminal_router(deps: AppDeps, tmux: TmuxManager) -> APIRouter:
 
         await websocket.accept()
 
+        # Start in the first assigned repo's worktree if available
+        start_cwd: str | None = None
+        if deps.git_manager:
+            for repo_id in ticket_state.repos:
+                wt_path = deps.git_manager.get_worktree_path(repo_id, ticket_id)
+                if wt_path:
+                    start_cwd = str(wt_path)
+                    break
+
         try:
-            tmux.create_session(ticket_id, env=kannix_env)
+            tmux.create_session(ticket_id, env=kannix_env, cwd=start_cwd)
         except Exception:
             logger.exception("Failed to create tmux session for %s", ticket_id)
             await websocket.send_text("\r\n\x1b[31m[tmux session failed]\x1b[0m\r\n")

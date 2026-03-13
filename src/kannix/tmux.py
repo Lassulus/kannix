@@ -41,12 +41,14 @@ class TmuxManager:
         self,
         session_name: str,
         env: dict[str, str] | None = None,
+        cwd: str | None = None,
     ) -> None:
         """Create a new detached tmux session using the user's default shell.
 
         Idempotent: does nothing if session already exists.
         If env is provided, variables are passed via -e so the initial
-        shell inherits them.
+        shell inherits them. If cwd is provided, the session starts
+        in that directory.
         """
         if self.session_exists(session_name):
             # Update env for future panes + export into running shell
@@ -67,7 +69,10 @@ class TmuxManager:
         if env:
             for key, value in env.items():
                 env_args.extend(["-e", f"{key}={value}"])
-        self._run("new-session", "-d", "-s", session_name, *env_args, shell)
+        cwd_args: list[str] = []
+        if cwd:
+            cwd_args = ["-c", cwd]
+        self._run("new-session", "-d", "-s", session_name, *cwd_args, *env_args, shell)
 
     def kill_session(self, session_name: str) -> None:
         """Kill a tmux session. Does nothing if it doesn't exist."""
