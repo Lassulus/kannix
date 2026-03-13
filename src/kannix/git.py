@@ -97,6 +97,14 @@ class GitManager:
 
         dest = self._repos_dir / f"{name}.git"
         _run_git("clone", "--bare", url, str(dest))
+        # Bare clones don't track remote branches by default — fix that
+        _run_git(
+            "-C",
+            str(dest),
+            "config",
+            "remote.origin.fetch",
+            "+refs/heads/*:refs/remotes/origin/*",
+        )
 
         default_branch = _detect_default_branch(dest)
 
