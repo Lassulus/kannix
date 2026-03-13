@@ -4,7 +4,14 @@
 <div class="container">
     <div class="toolbar">
         <h1>Kannix Board</h1>
-        <span>{{ username }}</span>
+        <div class="toolbar-right">
+            <select class="theme-chooser" id="theme-chooser" onchange="setTheme(this.value)">
+                {% for t in themes %}
+                <option value="{{ t }}" {% if t == theme %}selected{% endif %}>{{ t|capitalize }}</option>
+                {% endfor %}
+            </select>
+            <span>{{ username }}</span>
+        </div>
     </div>
     <div class="board" id="board">
         {% for col in columns %}
@@ -45,5 +52,10 @@ document.querySelectorAll('.ticket-list').forEach(el => {
         }
     });
 });
+
+function setTheme(name) {
+    document.cookie = 'theme=' + name + ';path=/;max-age=31536000';
+    document.querySelector('link[href*="/static/themes/"]').href = '/static/themes/' + name + '.css';
+}
 </script>
 {% endblock %}

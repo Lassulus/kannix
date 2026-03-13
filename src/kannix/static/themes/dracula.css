@@ -1,0 +1,12 @@
+/* Dracula — popular dark theme */
+:root {
+    --bg-primary: #282a36;
+    --bg-secondary: #44475a;
+    --bg-card: #44475a;
+    --bg-input: #282a36;
+    --text-primary: #f8f8f2;
+    --text-muted: #6272a4;
+    --accent: #ff79c6;
+    --accent-text: #282a36;
+    --border: #6272a4;
+}

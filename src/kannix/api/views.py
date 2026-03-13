@@ -16,6 +16,15 @@ if TYPE_CHECKING:
     from kannix.state import TicketState, UserState
 
 TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+AVAILABLE_THEMES = ["midnight", "light", "solarized", "nord", "dracula"]
+DEFAULT_THEME = "midnight"
+
+
+def _get_theme(theme_cookie: str | None) -> str:
+    """Get validated theme name from cookie, falling back to default."""
+    if theme_cookie and theme_cookie in AVAILABLE_THEMES:
+        return theme_cookie
+    return DEFAULT_THEME
 
 
 def _get_user(deps: AppDeps, token: str | None) -> UserState | None:
@@ -52,8 +61,13 @@ def create_views_router(deps: AppDeps) -> APIRouter:
         return RedirectResponse(url="/board", status_code=302)
 
     @router.get("/login", response_class=HTMLResponse)
-    async def login_page(request: Request) -> Response:
-        return templates.TemplateResponse(request, "login.html", {"error": None})
+    async def login_page(
+        request: Request,
+        theme: str | None = Cookie(default=None),
+    ) -> Response:
+        return templates.TemplateResponse(
+            request, "login.html", {"error": None, "theme": _get_theme(theme)}
+        )
 
     @router.post("/login")
     async def login_submit(
@@ -77,6 +91,7 @@ def create_views_router(deps: AppDeps) -> APIRouter:
         request: Request,
         ticket_id: str,
         token: str | None = Cookie(default=None),
+        theme: str | None = Cookie(default=None),
     ) -> Response:
         user = _get_user(deps, token)
         if user is None:
@@ -88,19 +103,21 @@ def create_views_router(deps: AppDeps) -> APIRouter:
         return templates.TemplateResponse(
             request,
             "ticket.html",
-            {"ticket": ticket, "token": token},
+            {"ticket": ticket, "token": token, "theme": _get_theme(theme)},
         )
 
     @router.get("/board")
     async def board(
         request: Request,
         token: str | None = Cookie(default=None),
+        theme: str | None = Cookie(default=None),
     ) -> Response:
         user = _get_user(deps, token)
         if user is None:
             return RedirectResponse(url="/login", status_code=302)
         tickets = ticket_mgr.list_all()
         by_col = _tickets_by_column(tickets, deps.config.columns)
+        current_theme = _get_theme(theme)
         return templates.TemplateResponse(
             request,
             "board.html",
@@ -108,6 +125,8 @@ def create_views_router(deps: AppDeps) -> APIRouter:
                 "columns": deps.config.columns,
                 "tickets_by_column": by_col,
                 "username": user.username,
+                "theme": current_theme,
+                "themes": AVAILABLE_THEMES,
             },
         )
 

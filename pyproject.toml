@@ -22,7 +22,7 @@ kannix = "kannix.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-kannix = ["templates/**/*.html"]
+kannix = ["templates/**/*.html", "static/**/*.css"]
 
 [tool.mypy]
 strict = true

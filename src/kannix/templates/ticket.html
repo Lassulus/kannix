@@ -4,32 +4,37 @@
 <div class="container">
     <div class="toolbar">
         <h1>
-            <a href="/board" style="color: #e94560; text-decoration: none;">← Board</a>
+            <a href="/board" style="text-decoration: none; color: var(--accent);">← Board</a>
             &nbsp;/ <span id="ticket-title">{{ ticket.title }}</span>
         </h1>
         <span class="meta">{{ ticket.column }} · {{ ticket.id[:8] }}</span>
     </div>
-    <div style="margin-bottom: 1rem;">
-        <form hx-put="/htmx/tickets/{{ ticket.id }}" hx-target="#ticket-info" hx-swap="innerHTML" style="display: flex; flex-direction: column; gap: 0.5rem;">
+    <div>
+        <form class="ticket-edit-form" hx-put="/htmx/tickets/{{ ticket.id }}" hx-target="#ticket-info" hx-swap="innerHTML">
             <label for="title">Title</label>
-            <input type="text" name="title" value="{{ ticket.title }}" style="padding: 0.4rem; background: #0f3460; border: 1px solid #333; color: #e0e0e0; border-radius: 4px;">
+            <input class="edit-input" type="text" name="title" value="{{ ticket.title }}">
             <label for="description">Description</label>
-            <textarea name="description" rows="3" style="padding: 0.4rem; background: #0f3460; border: 1px solid #333; color: #e0e0e0; border-radius: 4px; resize: vertical;">{{ ticket.description }}</textarea>
+            <textarea name="description" rows="3">{{ ticket.description }}</textarea>
             <div><button type="submit" class="btn btn-sm">Save</button></div>
         </form>
         <div id="ticket-info"></div>
     </div>
     <h2 style="margin-bottom: 0.5rem;">Terminal</h2>
-    <div id="terminal-container" style="width: 100%; height: 500px; background: #000; border-radius: 8px; overflow: hidden;"></div>
+    <div id="terminal-container"></div>
 </div>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
 <script>
 (function() {
+    const style = getComputedStyle(document.documentElement);
+    const bg = style.getPropertyValue('--bg-card').trim() || '#0f3460';
+    const fg = style.getPropertyValue('--text-primary').trim() || '#e0e0e0';
+    const cursor = style.getPropertyValue('--accent').trim() || '#e94560';
+
     const term = new Terminal({
         cursorBlink: true,
-        theme: { background: '#0f3460', foreground: '#e0e0e0', cursor: '#e94560' },
+        theme: { background: bg, foreground: fg, cursor: cursor },
     });
     const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);

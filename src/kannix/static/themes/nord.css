@@ -1,0 +1,12 @@
+/* Nord — arctic, north-bluish palette */
+:root {
+    --bg-primary: #2e3440;
+    --bg-secondary: #3b4252;
+    --bg-card: #434c5e;
+    --bg-input: #3b4252;
+    --text-primary: #eceff4;
+    --text-muted: #d8dee9;
+    --accent: #88c0d0;
+    --accent-text: #2e3440;
+    --border: #4c566a;
+}

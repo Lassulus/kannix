@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from kannix.api.admin import create_admin_router
 from kannix.api.auth import create_auth_router
@@ -47,6 +49,10 @@ def create_app(
         # Terminal WebSocket
         tmux = TmuxManager()
         app.include_router(create_terminal_router(deps, tmux))
+
+    # Mount static files
+    static_dir = Path(__file__).parent / "static"
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     @app.get("/health")
     async def health() -> dict[str, str]:

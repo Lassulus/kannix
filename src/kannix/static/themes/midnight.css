@@ -1,0 +1,12 @@
+/* Midnight — the original Kannix dark theme */
+:root {
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-card: #0f3460;
+    --bg-input: #0f3460;
+    --text-primary: #e0e0e0;
+    --text-muted: #888;
+    --accent: #e94560;
+    --accent-text: #ffffff;
+    --border: #333;
+}
