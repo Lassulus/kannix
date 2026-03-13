@@ -90,6 +90,7 @@ class TmuxManager:
         child_pid, master_fd = pty.fork()
         if child_pid == 0:
             # Child process: exec tmux attach
+            os.environ["TERM"] = "xterm-256color"
             os.execlp(
                 "tmux",
                 "tmux",

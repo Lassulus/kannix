@@ -66,12 +66,23 @@ def create_terminal_router(deps: AppDeps, tmux: TmuxManager) -> APIRouter:
                     safe_name = repo.name.upper().replace("-", "_")
                     kannix_env[f"KANNIX_WORKTREE_{safe_name}"] = str(wt_path)
 
-        tmux.create_session(ticket_id, env=kannix_env)
-
-        # Attach to tmux via pty
-        master_fd, child_pid = tmux.attach_pty(ticket_id)
-
         await websocket.accept()
+
+        try:
+            tmux.create_session(ticket_id, env=kannix_env)
+        except Exception:
+            logger.exception("Failed to create tmux session for %s", ticket_id)
+            await websocket.send_text("\r\n\x1b[31m[tmux session failed]\x1b[0m\r\n")
+            await websocket.close()
+            return
+
+        try:
+            master_fd, child_pid = tmux.attach_pty(ticket_id)
+        except Exception:
+            logger.exception("Failed to attach pty for %s", ticket_id)
+            await websocket.send_text("\r\n\x1b[31m[pty attach failed]\x1b[0m\r\n")
+            await websocket.close()
+            return
 
         try:
             await _bridge(websocket, master_fd)
