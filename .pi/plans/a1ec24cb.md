@@ -13,7 +13,7 @@
     {
       "id": 2,
       "text": "M7.2: Git repo model + config — add repos_dir/worktree_dir to KannixConfig, add RepoState to state model (id, name, url, path, default_branch). TDD: config validation, state round-trip.",
-      "done": false
+      "done": true
     },
     {
       "id": 3,
