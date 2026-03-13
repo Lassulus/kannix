@@ -75,6 +75,9 @@
             pythonEnv
             pkgs.ruff
             pkgs.tmux
+            (pkgs.writeShellScriptBin "kannix-ctl" ''
+              exec ${pythonEnv}/bin/python -m kannix.ctl "$@"
+            '')
             (pkgs.writeShellScriptBin "kannix-dev" ''
               set -e
               export PYTHONPATH="$PWD/src:''${PYTHONPATH:-}"

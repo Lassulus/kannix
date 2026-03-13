@@ -27,8 +27,9 @@ def _get_config_and_state() -> tuple[Path, Path]:
 
 
 def create_dev_app() -> FastAPI:
-    """App factory for uvicorn --reload (reads config from env vars)."""
-    config_path, state_dir = _get_config_and_state()
+    """App factory for uvicorn --reload (reads config from env vars only)."""
+    config_path = Path(os.environ.get("KANNIX_CONFIG", "dev-config.json"))
+    state_dir = Path(os.environ.get("KANNIX_STATE_DIR", "/tmp/kannix-dev"))
     state_dir.mkdir(parents=True, exist_ok=True)
     config = load_config(config_path)
     state_manager = StateManager(state_dir / "state.json")
