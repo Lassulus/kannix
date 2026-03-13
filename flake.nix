@@ -27,6 +27,7 @@
             jinja2
             bcrypt
             python-multipart
+            websockets
             pytest
             pytest-asyncio
             mypy

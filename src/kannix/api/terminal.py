@@ -56,10 +56,6 @@ def create_terminal_router(deps: AppDeps, tmux: TmuxManager) -> APIRouter:
         await websocket.accept()
 
         try:
-            # Set master_fd to non-blocking
-            flags = fcntl.fcntl(master_fd, fcntl.F_GETFL)
-            fcntl.fcntl(master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-
             await _bridge(websocket, master_fd)
         except WebSocketDisconnect:
             logger.debug("WebSocket disconnected for ticket %s", ticket_id)

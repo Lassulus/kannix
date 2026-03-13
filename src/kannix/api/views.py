@@ -137,6 +137,26 @@ def create_htmx_router(deps: AppDeps) -> APIRouter:
             {"ticket": ticket},
         )
 
+    @router.put("/tickets/{ticket_id}")
+    async def update_ticket(
+        request: Request,
+        ticket_id: str,
+        title: str = Form(default=""),
+        description: str = Form(default=""),
+        token: str | None = Cookie(default=None),
+    ) -> Response:
+        user = _get_user(deps, token)
+        if user is None:
+            return RedirectResponse(url="/login", status_code=302)
+        ticket = ticket_mgr.update(
+            ticket_id,
+            title=title or None,
+            description=description,
+        )
+        if ticket is None:
+            return HTMLResponse("Ticket not found", status_code=404)
+        return HTMLResponse("<div style='color: #4ade80;'>✓ Saved</div>")
+
     @router.post("/tickets/{ticket_id}/move")
     async def move_ticket(
         request: Request,

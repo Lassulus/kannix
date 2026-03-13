@@ -1,0 +1,11 @@
+{
+  "columns": ["Backlog", "In Progress", "Review", "Done"],
+  "hooks": {
+    "on_create": "tmux -L kannix new-session -d -s $TICKET_ID",
+    "on_delete": "tmux -L kannix kill-session -t $TICKET_ID"
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 9876
+  }
+}
