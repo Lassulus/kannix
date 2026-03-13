@@ -21,14 +21,24 @@ class TmuxManager:
         cmd = ["tmux", "-L", self._socket, *args]
         return subprocess.run(cmd, capture_output=True, text=True, check=check)
 
+    def _default_shell(self) -> str:
+        """Get the user's default shell."""
+        import pwd
+
+        try:
+            return pwd.getpwuid(os.getuid()).pw_shell
+        except KeyError:
+            return os.environ.get("SHELL", "/bin/sh")
+
     def create_session(self, session_name: str) -> None:
-        """Create a new detached tmux session.
+        """Create a new detached tmux session using the user's default shell.
 
         Idempotent: does nothing if session already exists.
         """
         if self.session_exists(session_name):
             return
-        self._run("new-session", "-d", "-s", session_name)
+        shell = self._default_shell()
+        self._run("new-session", "-d", "-s", session_name, shell)
 
     def kill_session(self, session_name: str) -> None:
         """Kill a tmux session. Does nothing if it doesn't exist."""
