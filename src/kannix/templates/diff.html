@@ -1,6 +1,64 @@
 {% extends "base.html" %}
 {% block title %}Diff — {{ ticket.title }}{% endblock %}
 {% block content %}
+<style>
+.commit-entry {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.commit-header {
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.commit-sha {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--accent);
+}
+.commit-message {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.commit-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+.commit-diff {
+    overflow-x: auto;
+}
+.no-changes {
+    color: var(--text-muted);
+    padding: 1rem;
+}
+.view-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.view-toggle button {
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+.view-toggle button.active {
+    background: var(--accent);
+    color: var(--bg-primary);
+    border-color: var(--accent);
+}
+</style>
+
 <div class="container">
     <div class="toolbar">
         <h1>
@@ -25,12 +83,13 @@
 
     {% for repo in assigned_repos %}
     <div class="diff-content" id="diff-content-{{ repo.id }}" style="{% if not loop.first %}display: none;{% endif %}">
-        {% set diff = diffs[repo.id] %}
-        {% if diff %}
-        <div id="diff-container-{{ repo.id }}"></div>
-        {% else %}
-        <p style="color: var(--text-muted);">No changes on this branch yet.</p>
-        {% endif %}
+        <div class="view-toggle">
+            <button class="active" onclick="showView('{{ repo.id }}', 'commits')">By commit</button>
+            <button onclick="showView('{{ repo.id }}', 'combined')">Combined</button>
+        </div>
+
+        <div id="commits-view-{{ repo.id }}"></div>
+        <div id="combined-view-{{ repo.id }}" style="display: none;"></div>
     </div>
     {% endfor %}
     {% endif %}
@@ -39,26 +98,111 @@
 <link rel="stylesheet" href="/static/vendor/diff2html.min.css">
 <script src="/static/vendor/diff2html-ui.min.js"></script>
 <script>
-var diffs = {{ diffs_json | safe }};
+var commitsData = {{ commits_data | tojson }};
+var diffsData = {{ diffs | tojson }};
 
-// Render diffs
-Object.keys(diffs).forEach(function(repoId) {
-    if (!diffs[repoId]) return;
-    var el = document.getElementById('diff-container-' + repoId);
-    if (!el) return;
-    var ui = new Diff2HtmlUI(el, diffs[repoId], {
-        drawFileList: true,
-        fileListToggle: true,
-        fileListStartVisible: true,
-        fileContentToggle: true,
-        matching: 'lines',
-        outputFormat: 'side-by-side',
-        synchronisedScroll: true,
-        highlight: true,
-        renderNothingWhenEmpty: false,
+var diffConfig = {
+    drawFileList: true,
+    fileListToggle: true,
+    fileListStartVisible: false,
+    fileContentToggle: true,
+    matching: 'lines',
+    outputFormat: 'side-by-side',
+    synchronisedScroll: true,
+    highlight: true,
+    renderNothingWhenEmpty: false,
+};
+
+function formatDate(isoString) {
+    var d = new Date(isoString);
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+// Render per-commit views
+Object.keys(commitsData).forEach(function(repoId) {
+    var container = document.getElementById('commits-view-' + repoId);
+    if (!container) return;
+
+    var commits = commitsData[repoId];
+    if (!commits || commits.length === 0) {
+        container.innerHTML = '<p class="no-changes">No commits on this branch yet.</p>';
+        return;
+    }
+
+    commits.forEach(function(commit, idx) {
+        var entry = document.createElement('div');
+        entry.className = 'commit-entry';
+
+        var header = document.createElement('div');
+        header.className = 'commit-header';
+        var isWorkingTree = commit.sha === 'working-tree';
+        var shaHtml = isWorkingTree
+            ? '<span class="commit-sha" style="color: var(--text-muted);">●</span>'
+            : '<span class="commit-sha">' + commit.sha.substring(0, 10) + '</span>';
+        var metaHtml = isWorkingTree
+            ? '<span class="commit-meta" style="font-style: italic;">not yet committed</span>'
+            : '<span class="commit-meta">' + escapeHtml(commit.author) + ' · ' + formatDate(commit.date) + '</span>';
+        header.innerHTML = shaHtml +
+            '<span class="commit-message">' + escapeHtml(commit.message) + '</span>' +
+            metaHtml;
+        entry.appendChild(header);
+
+        if (commit.diff) {
+            var diffDiv = document.createElement('div');
+            diffDiv.className = 'commit-diff';
+            diffDiv.id = 'commit-diff-' + repoId + '-' + idx;
+            entry.appendChild(diffDiv);
+        } else {
+            var noChanges = document.createElement('p');
+            noChanges.className = 'no-changes';
+            noChanges.textContent = 'No file changes in this commit.';
+            entry.appendChild(noChanges);
+        }
+
+        container.appendChild(entry);
+
+        // Render diff2html for this commit
+        if (commit.diff) {
+            var el = document.getElementById('commit-diff-' + repoId + '-' + idx);
+            var ui = new Diff2HtmlUI(el, commit.diff, diffConfig);
+            ui.draw();
+        }
     });
+});
+
+// Render combined views
+Object.keys(diffsData).forEach(function(repoId) {
+    if (!diffsData[repoId]) {
+        var container = document.getElementById('combined-view-' + repoId);
+        if (container) container.innerHTML = '<p class="no-changes">No changes on this branch yet.</p>';
+        return;
+    }
+    var el = document.getElementById('combined-view-' + repoId);
+    if (!el) return;
+    var ui = new Diff2HtmlUI(el, diffsData[repoId], Object.assign({}, diffConfig, {fileListStartVisible: true}));
     ui.draw();
 });
+
+function showView(repoId, view) {
+    var commitsEl = document.getElementById('commits-view-' + repoId);
+    var combinedEl = document.getElementById('combined-view-' + repoId);
+    var contentEl = document.getElementById('diff-content-' + repoId);
+    if (!contentEl) return;
+
+    var buttons = contentEl.querySelectorAll('.view-toggle button');
+    buttons.forEach(function(btn) { btn.classList.remove('active'); });
+
+    if (view === 'commits') {
+        if (commitsEl) commitsEl.style.display = 'block';
+        if (combinedEl) combinedEl.style.display = 'none';
+        buttons[0].classList.add('active');
+    } else {
+        if (commitsEl) commitsEl.style.display = 'none';
+        if (combinedEl) combinedEl.style.display = 'block';
+        buttons[1].classList.add('active');
+    }
+}
 
 function showDiffTab(repoId) {
     document.querySelectorAll('.diff-content').forEach(function(el) { el.style.display = 'none'; });
@@ -70,6 +214,12 @@ function showDiffTab(repoId) {
     if (content) content.style.display = 'block';
     var tab = document.getElementById('tab-' + repoId);
     if (tab) { tab.style.background = 'var(--bg-secondary)'; tab.classList.add('active'); }
+}
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
 }
 </script>
 {% endblock %}

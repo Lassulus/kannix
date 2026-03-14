@@ -190,6 +190,18 @@ def _cmd_unassign_repo(args: argparse.Namespace) -> None:
     print(f"Repo {args.repo_id[:8]} unassigned from ticket {ticket_id[:8]}")
 
 
+def _cmd_fetch_repo(args: argparse.Namespace) -> None:
+    """Fetch latest upstream changes for a repo."""
+    url, token, _ticket_id = _get_env()
+    status, body = _http_request(
+        f"{url}/api/repos/{args.repo_id}/fetch", method="POST", token=token
+    )
+    if status != 200:
+        print(f"Error ({status}): {body}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Fetched repo {args.repo_id[:8]}")
+
+
 def _cmd_worktrees(args: argparse.Namespace) -> None:
     """Show worktree paths for current ticket."""
     _url, _token, _ticket_id = _get_env()
@@ -231,6 +243,9 @@ def main() -> None:
 
     sub.add_parser("list-repos", help="List all repos")
 
+    fetch_parser = sub.add_parser("fetch-repo", help="Fetch latest upstream for a repo")
+    fetch_parser.add_argument("repo_id", help="Repo ID (or prefix)")
+
     assign_parser = sub.add_parser("assign-repo", help="Assign a repo to current ticket")
     assign_parser.add_argument("repo_id", help="Repo ID (or prefix)")
 
@@ -250,6 +265,7 @@ def main() -> None:
         "clone-repo": _cmd_clone_repo,
         "delete-repo": _cmd_delete_repo,
         "list-repos": _cmd_list_repos,
+        "fetch-repo": _cmd_fetch_repo,
         "assign-repo": _cmd_assign_repo,
         "unassign-repo": _cmd_unassign_repo,
         "worktrees": _cmd_worktrees,

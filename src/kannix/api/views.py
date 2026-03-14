@@ -167,13 +167,29 @@ def create_views_router(deps: AppDeps) -> APIRouter:
         all_repos = deps.git_manager.list_repos() if deps.git_manager else []
         assigned_repos = [r for r in all_repos if r.id in ticket.repos]
 
-        # Get diffs for all assigned repos
-        import json as json_mod
+        # Get commits and diffs for all assigned repos
+        from kannix.git import CommitInfo  # noqa: TC001
 
+        commits_by_repo: dict[str, list[CommitInfo]] = {}
         diffs: dict[str, str] = {}
         for repo in assigned_repos:
             if deps.git_manager:
+                commits_by_repo[repo.id] = deps.git_manager.get_commits(repo.id, ticket_id)
                 diffs[repo.id] = deps.git_manager.get_diff(repo.id, ticket_id)
+
+        # Serialize commits for template (tojson filter handles HTML escaping)
+        commits_data: dict[str, list[dict[str, str]]] = {}
+        for repo_id, commits in commits_by_repo.items():
+            commits_data[repo_id] = [
+                {
+                    "sha": c.sha,
+                    "author": c.author,
+                    "date": c.date,
+                    "message": c.message,
+                    "diff": c.diff,
+                }
+                for c in commits
+            ]
 
         return templates.TemplateResponse(
             request,
@@ -182,7 +198,7 @@ def create_views_router(deps: AppDeps) -> APIRouter:
                 "ticket": ticket,
                 "assigned_repos": assigned_repos,
                 "diffs": diffs,
-                "diffs_json": json_mod.dumps(diffs),
+                "commits_data": commits_data,
                 "theme": _get_theme(theme),
             },
         )

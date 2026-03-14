@@ -152,6 +152,20 @@ def create_repos_router(deps: AppDeps) -> APIRouter:
         deps.git_manager.delete_worktree(body.repo_id, body.ticket_id)
         return {"status": "unassigned"}
 
+    @router.post("/{repo_id}/fetch")
+    async def fetch_repo(
+        repo_id: str,
+        authorization: str = Header(default=""),
+    ) -> dict[str, str]:
+        _require_auth(deps, authorization)
+        if deps.git_manager is None:
+            raise HTTPException(status_code=404, detail="Repo not found")
+        if deps.git_manager.get_repo(repo_id) is None:
+            raise HTTPException(status_code=404, detail="Repo not found")
+        if not deps.git_manager.fetch_repo(repo_id):
+            raise HTTPException(status_code=500, detail="Fetch failed")
+        return {"status": "fetched"}
+
     @router.delete("/{repo_id}")
     async def delete_repo(
         repo_id: str,

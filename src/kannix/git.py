@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from kannix.state import RepoState
@@ -27,6 +28,17 @@ def _slugify(text: str) -> str:
     s = s.strip("-")
     s = re.sub(r"-{2,}", "-", s)
     return s
+
+
+@dataclass
+class CommitInfo:
+    """Information about a single commit."""
+
+    sha: str
+    author: str
+    date: str
+    message: str
+    diff: str
 
 
 def ticket_dir_name(ticket_id: str, title: str) -> str:
@@ -106,6 +118,8 @@ class GitManager:
             "remote.origin.fetch",
             "+refs/heads/*:refs/remotes/origin/*",
         )
+        # Fetch remote tracking branches now that refspec is configured
+        _run_git("fetch", "origin", cwd=dest, check=False)
 
         default_branch = _detect_default_branch(dest)
 
@@ -167,10 +181,34 @@ class GitManager:
         """Get the worktree path for a ticket+repo."""
         return self._worktree_dir / self._ticket_dir(ticket_id) / repo_name
 
+    def fetch_repo(self, repo_id: str) -> bool:
+        """Fetch latest changes from upstream for a repo.
+
+        Returns:
+            True if fetch succeeded, False if repo not found or fetch failed.
+        """
+        repo = self.get_repo(repo_id)
+        if repo is None:
+            return False
+
+        repo_path = self._repos_dir / f"{repo.name}.git"
+        result = _run_git("fetch", "origin", cwd=repo_path, check=False)
+        return result.returncode == 0
+
+    def get_upstream_ref(self, repo_id: str) -> str | None:
+        """Get the upstream ref name for a repo (e.g. 'origin/main').
+
+        Returns None if repo not found.
+        """
+        repo = self.get_repo(repo_id)
+        if repo is None:
+            return None
+        return f"origin/{repo.default_branch}"
+
     def create_worktree(self, repo_id: str, ticket_id: str, title: str) -> Path:
         """Create a worktree for a ticket in a repo.
 
-        Creates a new branch from the default branch HEAD.
+        Creates a new branch from the upstream default branch HEAD.
 
         Returns:
             Path to the worktree directory.
@@ -187,6 +225,11 @@ class GitManager:
         wt_path.parent.mkdir(parents=True, exist_ok=True)
 
         repo_path = self._repos_dir / f"{repo.name}.git"
+
+        # Fetch latest upstream before creating worktree
+        _run_git("fetch", "origin", cwd=repo_path, check=False)
+
+        upstream_ref = f"origin/{repo.default_branch}"
 
         # Check if branch already exists (re-assignment)
         branch_check = _run_git(
@@ -206,14 +249,14 @@ class GitManager:
                 cwd=repo_path,
             )
         else:
-            # Create worktree with new branch from default branch
+            # Create worktree with new branch from upstream default branch
             _run_git(
                 "worktree",
                 "add",
                 "-b",
                 branch,
                 str(wt_path),
-                repo.default_branch,
+                upstream_ref,
                 cwd=repo_path,
             )
 
@@ -318,7 +361,10 @@ class GitManager:
         return False
 
     def get_diff(self, repo_id: str, ticket_id: str) -> str:
-        """Get the diff for a ticket's worktree vs merge-base.
+        """Get the diff for a ticket's worktree vs upstream merge-base.
+
+        Diffs against origin/<default_branch> so the comparison is always
+        against the latest upstream, not a potentially stale local branch.
 
         Returns unified diff string, or empty string if no changes.
         """
@@ -330,11 +376,13 @@ class GitManager:
         if not wt_path.exists():
             return ""
 
-        # Find merge-base with default branch
+        upstream_ref = f"origin/{repo.default_branch}"
+
+        # Find merge-base with upstream default branch
         merge_base_result = _run_git(
             "merge-base",
             "HEAD",
-            repo.default_branch,
+            upstream_ref,
             cwd=wt_path,
             check=False,
         )
@@ -383,3 +431,102 @@ class GitManager:
                     parts.append(patched)
 
         return "".join(parts)
+
+    def get_commits(self, repo_id: str, ticket_id: str) -> list[CommitInfo]:
+        """Get commits on a ticket branch since the upstream merge-base.
+
+        Returns commits in chronological order (oldest first), each with
+        its own diff.
+        """
+        repo = self.get_repo(repo_id)
+        if repo is None:
+            return []
+
+        wt_path = self._worktree_path(ticket_id, repo.name)
+        if not wt_path.exists():
+            return []
+
+        upstream_ref = f"origin/{repo.default_branch}"
+
+        # Find merge-base
+        merge_base_result = _run_git(
+            "merge-base",
+            "HEAD",
+            upstream_ref,
+            cwd=wt_path,
+            check=False,
+        )
+        if merge_base_result.returncode != 0:
+            return []
+
+        merge_base = merge_base_result.stdout.strip()
+
+        # Get commit list (oldest first) with a delimiter we can parse
+        # Format: sha\x1fauthor\x1fdate\x1fmessage
+        log_result = _run_git(
+            "log",
+            "--reverse",
+            "--format=%H%x1f%an%x1f%aI%x1f%s",
+            f"{merge_base}..HEAD",
+            cwd=wt_path,
+            check=False,
+        )
+        if log_result.returncode != 0 or not log_result.stdout.strip():
+            return []
+
+        commits: list[CommitInfo] = []
+        for line in log_result.stdout.strip().split("\n"):
+            parts = line.split("\x1f", 3)
+            if len(parts) < 4:
+                continue
+            sha, author, date, message = parts
+
+            # Get diff for this specific commit
+            diff_result = _run_git(
+                "diff",
+                f"{sha}~1",
+                sha,
+                cwd=wt_path,
+                check=False,
+            )
+            # For the first commit after merge-base, sha~1 might fail
+            # if it's the merge-base itself; use merge-base directly
+            if diff_result.returncode != 0:
+                diff_result = _run_git(
+                    "diff",
+                    merge_base,
+                    sha,
+                    cwd=wt_path,
+                    check=False,
+                )
+
+            commits.append(
+                CommitInfo(
+                    sha=sha,
+                    author=author,
+                    date=date,
+                    message=message,
+                    diff=diff_result.stdout if diff_result.returncode == 0 else "",
+                )
+            )
+
+        # Check for uncommitted changes (staged + unstaged)
+        uncommitted_result = _run_git(
+            "diff",
+            "HEAD",
+            cwd=wt_path,
+            check=False,
+        )
+        uncommitted = uncommitted_result.stdout if uncommitted_result.returncode == 0 else ""
+        if uncommitted.strip():
+            commits.append(
+                CommitInfo(
+                    sha="working-tree",
+                    author="",
+                    date="",
+                    message="Uncommitted changes",
+                    diff=uncommitted,
+                )
+            )
+
+        return commits

@@ -330,6 +330,292 @@ def test_reassign_worktree_reuses_branch(
 
 
 @pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_get_diff_against_upstream(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """get_diff compares against origin/<default_branch>, not a local branch."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+    wt_path = gm.create_worktree(repo.id, "ticket123", "Test")
+
+    # Make a change and commit on the ticket branch
+    (wt_path / "new_file.txt").write_text("hello\n")
+    subprocess.run(
+        ["git", "-C", str(wt_path), "add", "."],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(wt_path), "commit", "-m", "add file"],
+        capture_output=True,
+        check=True,
+    )
+
+    diff = gm.get_diff(repo.id, "ticket123")
+    assert "new_file.txt" in diff
+
+    # Push a new commit to the upstream (source bare repo) — the diff
+    # should still work and only show our ticket's changes
+    upstream_work = tmp_path / "upstream_work"
+    upstream_work.mkdir()
+    subprocess.run(
+        ["git", "clone", f"file://{source}", str(upstream_work)],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(upstream_work), "config", "user.email", "t@t.com"],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(upstream_work), "config", "user.name", "T"],
+        capture_output=True,
+        check=True,
+    )
+    (upstream_work / "upstream_change.txt").write_text("upstream\n")
+    subprocess.run(
+        ["git", "-C", str(upstream_work), "add", "."],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(upstream_work), "commit", "-m", "upstream change"],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(upstream_work), "push"],
+        capture_output=True,
+        check=True,
+    )
+
+    # After fetching, diff should still show only our change
+    gm.fetch_repo(repo.id)
+    diff = gm.get_diff(repo.id, "ticket123")
+    assert "new_file.txt" in diff
+    # Should NOT include the upstream change in the diff
+    assert "upstream_change.txt" not in diff
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_fetch_repo(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """fetch_repo fetches latest changes from upstream."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+
+    # Push a new commit to upstream
+    upstream_work = tmp_path / "upstream_work"
+    subprocess.run(
+        ["git", "clone", f"file://{source}", str(upstream_work)],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(upstream_work), "config", "user.email", "t@t.com"],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(upstream_work), "config", "user.name", "T"],
+        capture_output=True,
+        check=True,
+    )
+    (upstream_work / "new.txt").write_text("new\n")
+    subprocess.run(
+        ["git", "-C", str(upstream_work), "add", "."],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(upstream_work), "commit", "-m", "new commit"],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(upstream_work), "push"],
+        capture_output=True,
+        check=True,
+    )
+
+    # Fetch and verify origin/main is updated
+    assert gm.fetch_repo(repo.id) is True
+
+    repo_path = gm._repos_dir / "myrepo.git"
+    result = subprocess.run(
+        ["git", "-C", str(repo_path), "log", "--oneline", "origin/main"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "new commit" in result.stdout
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_fetch_repo_not_found(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """fetch_repo returns False for unknown repo."""
+    gm, _sm, _tmp_path = git_env
+    assert gm.fetch_repo("nonexistent") is False
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_get_commits_empty(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """get_commits returns empty list when no changes."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+    gm.create_worktree(repo.id, "ticket123", "Test")
+
+    commits = gm.get_commits(repo.id, "ticket123")
+    assert commits == []
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_get_commits_with_changes(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """get_commits returns commits in chronological order with diffs."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+    wt_path = gm.create_worktree(repo.id, "ticket123", "Test")
+
+    # Make two commits
+    (wt_path / "file1.txt").write_text("first\n")
+    subprocess.run(["git", "-C", str(wt_path), "add", "."], capture_output=True, check=True)
+    subprocess.run(
+        ["git", "-C", str(wt_path), "commit", "-m", "add file1"],
+        capture_output=True,
+        check=True,
+    )
+
+    (wt_path / "file2.txt").write_text("second\n")
+    subprocess.run(["git", "-C", str(wt_path), "add", "."], capture_output=True, check=True)
+    subprocess.run(
+        ["git", "-C", str(wt_path), "commit", "-m", "add file2"],
+        capture_output=True,
+        check=True,
+    )
+
+    commits = gm.get_commits(repo.id, "ticket123")
+    assert len(commits) == 2
+
+    # Chronological order — oldest first
+    assert commits[0].message == "add file1"
+    assert commits[1].message == "add file2"
+
+    # Each commit has its own diff
+    assert "file1.txt" in commits[0].diff
+    assert "file2.txt" not in commits[0].diff
+    assert "file2.txt" in commits[1].diff
+    assert "file1.txt" not in commits[1].diff
+
+    # Commits have metadata
+    assert len(commits[0].sha) == 40
+    assert commits[0].author != ""
+    assert commits[0].date != ""
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_get_diff_includes_uncommitted(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """get_diff includes staged changes and modifications to tracked files."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+    wt_path = gm.create_worktree(repo.id, "ticket123", "Test")
+
+    # Staged new file
+    (wt_path / "staged.txt").write_text("staged\n")
+    subprocess.run(
+        ["git", "-C", str(wt_path), "add", "staged.txt"],
+        capture_output=True,
+        check=True,
+    )
+
+    # Unstaged modification to a tracked file
+    (wt_path / "README.md").write_text("modified\n")
+
+    diff = gm.get_diff(repo.id, "ticket123")
+    assert "staged.txt" in diff
+    assert "README.md" in diff
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_get_commits_includes_uncommitted(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """get_commits appends uncommitted changes as a synthetic entry."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+    wt_path = gm.create_worktree(repo.id, "ticket123", "Test")
+
+    # Make a committed change
+    (wt_path / "committed.txt").write_text("committed\n")
+    subprocess.run(["git", "-C", str(wt_path), "add", "."], capture_output=True, check=True)
+    subprocess.run(
+        ["git", "-C", str(wt_path), "commit", "-m", "first commit"],
+        capture_output=True,
+        check=True,
+    )
+
+    # Make uncommitted changes: staged new file + unstaged edit to tracked file
+    (wt_path / "staged.txt").write_text("staged\n")
+    subprocess.run(
+        ["git", "-C", str(wt_path), "add", "staged.txt"],
+        capture_output=True,
+        check=True,
+    )
+    (wt_path / "committed.txt").write_text("modified\n")
+
+    commits = gm.get_commits(repo.id, "ticket123")
+    assert len(commits) == 2
+
+    # First is the real commit
+    assert commits[0].message == "first commit"
+    assert "committed.txt" in commits[0].diff
+
+    # Second is the synthetic uncommitted entry
+    assert commits[1].sha == "working-tree"
+    assert commits[1].message == "Uncommitted changes"
+    assert "staged.txt" in commits[1].diff
+    assert "committed.txt" in commits[1].diff
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_get_commits_no_uncommitted_entry_when_clean(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """get_commits does not add working-tree entry when worktree is clean."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+    wt_path = gm.create_worktree(repo.id, "ticket123", "Test")
+
+    (wt_path / "file.txt").write_text("change\n")
+    subprocess.run(["git", "-C", str(wt_path), "add", "."], capture_output=True, check=True)
+    subprocess.run(
+        ["git", "-C", str(wt_path), "commit", "-m", "clean commit"],
+        capture_output=True,
+        check=True,
+    )
+
+    commits = gm.get_commits(repo.id, "ticket123")
+    assert len(commits) == 1
+    assert commits[0].sha != "working-tree"
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
 def test_slugify_title() -> None:
     """Branch names are properly slugified."""
     from kannix.git import _slugify
