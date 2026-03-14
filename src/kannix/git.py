@@ -290,12 +290,43 @@ class GitManager:
 
         merge_base = merge_base_result.stdout.strip()
 
-        # Get diff from merge-base to HEAD
+        # Get diff from merge-base to working tree (includes committed,
+        # staged, and unstaged changes to tracked files)
         diff_result = _run_git(
             "diff",
             merge_base,
-            "HEAD",
             cwd=wt_path,
             check=False,
         )
-        return diff_result.stdout
+        parts = [diff_result.stdout]
+
+        # Include untracked files as new-file diffs
+        untracked_result = _run_git(
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            cwd=wt_path,
+            check=False,
+        )
+        if untracked_result.returncode == 0:
+            for fname in untracked_result.stdout.splitlines():
+                fname = fname.strip()
+                if not fname:
+                    continue
+                # Generate a diff for the untracked file using diff --no-index
+                ut_diff = _run_git(
+                    "diff",
+                    "--no-index",
+                    "/dev/null",
+                    fname,
+                    cwd=wt_path,
+                    check=False,
+                )
+                if ut_diff.stdout:
+                    # Rewrite the header so it looks like a normal a/b diff
+                    patched = ut_diff.stdout.replace(
+                        "/dev/null", f"a/{fname}", 1
+                    )
+                    parts.append(patched)
+
+        return "".join(parts)

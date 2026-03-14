@@ -218,6 +218,76 @@ def test_get_diff_with_changes(
 
 
 @pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_get_diff_unstaged_changes(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """get_diff includes unstaged modifications to tracked files."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+    wt_path = gm.create_worktree(repo.id, "ticket123", "Test")
+
+    # Modify a tracked file without staging or committing
+    (wt_path / "README.md").write_text("# Modified\n")
+
+    diff = gm.get_diff(repo.id, "ticket123")
+    assert "README.md" in diff
+    assert "+# Modified" in diff
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_get_diff_untracked_files(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """get_diff includes untracked (new) files."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+    wt_path = gm.create_worktree(repo.id, "ticket123", "Test")
+
+    # Create a new file without staging
+    (wt_path / "brand_new.txt").write_text("I am new\n")
+
+    diff = gm.get_diff(repo.id, "ticket123")
+    assert "brand_new.txt" in diff
+    assert "+I am new" in diff
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
+def test_get_diff_mixed_committed_and_unstaged(
+    git_env: tuple[GitManager, StateManager, Path],
+) -> None:
+    """get_diff shows committed changes, unstaged edits, and untracked files together."""
+    gm, _sm, tmp_path = git_env
+    source = _init_test_repo(tmp_path / "source")
+    repo = gm.clone_repo(f"file://{source}", name="myrepo")
+    wt_path = gm.create_worktree(repo.id, "ticket123", "Test")
+
+    # Committed change
+    (wt_path / "committed.txt").write_text("committed\n")
+    subprocess.run(["git", "-C", str(wt_path), "add", "."], capture_output=True, check=True)
+    subprocess.run(
+        ["git", "-C", str(wt_path), "commit", "-m", "add committed"],
+        capture_output=True,
+        check=True,
+    )
+
+    # Unstaged edit to tracked file
+    (wt_path / "README.md").write_text("# Edited\n")
+
+    # Untracked new file
+    (wt_path / "untracked.txt").write_text("untracked\n")
+
+    diff = gm.get_diff(repo.id, "ticket123")
+    assert "committed.txt" in diff
+    assert "+committed" in diff
+    assert "README.md" in diff
+    assert "+# Edited" in diff
+    assert "untracked.txt" in diff
+    assert "+untracked" in diff
+
+
+@pytest.mark.skipif(_is_sandbox(), reason="git tests skipped in nix sandbox")
 def test_get_worktree_path(
     git_env: tuple[GitManager, StateManager, Path],
 ) -> None:
