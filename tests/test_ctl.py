@@ -121,9 +121,9 @@ def test_ctl_set_title(
     ticket_mgr: TicketManager,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """kannix-ctl set --title updates the title."""
+    """kannix-ctl set --description updates the description."""
     user = auth.create_user("alice", "pass", is_admin=False)
-    ticket = ticket_mgr.create("Old Title", "desc")
+    ticket = ticket_mgr.create("My Task", "old desc")
 
     env = {
         "KANNIX_URL": "http://test",
@@ -132,7 +132,7 @@ def test_ctl_set_title(
     }
     with (
         patch.dict("os.environ", env),
-        patch("sys.argv", ["kannix-ctl", "set", "--title", "New Title"]),
+        patch("sys.argv", ["kannix-ctl", "set", "--description", "new desc"]),
         patch("kannix.ctl._http_request") as mock_req,
     ):
         mock_req.return_value = (
@@ -140,8 +140,8 @@ def test_ctl_set_title(
             json.dumps(
                 {
                     "id": ticket.id,
-                    "title": "New Title",
-                    "description": "desc",
+                    "title": "My Task",
+                    "description": "new desc",
                     "column": "Backlog",
                     "assigned_to": None,
                 }
@@ -149,7 +149,7 @@ def test_ctl_set_title(
         )
         ctl_main()
         out = capsys.readouterr().out
-        assert "New Title" in out
+        assert "My Task" in out
 
 
 def test_ctl_set_description(

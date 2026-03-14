@@ -260,7 +260,6 @@ def create_htmx_router(deps: AppDeps) -> APIRouter:
     async def update_ticket(
         request: Request,
         ticket_id: str,
-        title: str = Form(default=""),
         description: str = Form(default=""),
         token: str | None = Cookie(default=None),
     ) -> Response:
@@ -269,7 +268,6 @@ def create_htmx_router(deps: AppDeps) -> APIRouter:
             return RedirectResponse(url="/login", status_code=302)
         ticket = ticket_mgr.update(
             ticket_id,
-            title=title or None,
             description=description,
         )
         if ticket is None:

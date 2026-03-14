@@ -66,12 +66,10 @@ def _cmd_set(args: argparse.Namespace) -> None:
         print("Error: KANNIX_TICKET_ID not set.", file=sys.stderr)
         sys.exit(1)
     data: dict[str, object] = {}
-    if args.title is not None:
-        data["title"] = args.title
     if args.description is not None:
         data["description"] = args.description
     if not data:
-        print("Error: provide --title and/or --description", file=sys.stderr)
+        print("Error: provide --description", file=sys.stderr)
         sys.exit(1)
     status, body = _http_request(
         f"{url}/api/tickets/{ticket_id}", method="PUT", token=token, data=data
@@ -216,7 +214,7 @@ def main() -> None:
     sub.add_parser("get", help="Show current ticket info")
 
     set_parser = sub.add_parser("set", help="Update ticket fields")
-    set_parser.add_argument("--title", help="New title")
+
     set_parser.add_argument("--description", help="New description")
 
     move_parser = sub.add_parser("move", help="Move ticket to a column")

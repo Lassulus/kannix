@@ -203,7 +203,7 @@ async def test_htmx_assign_repo(
     assert "myrepo" in resp.text
 
     # Verify worktree exists
-    wt_path = tmp_path / "worktrees" / ticket.id / "myrepo"
+    wt_path = tmp_path / "worktrees" / ticket.dir_name / "myrepo"
     assert wt_path.exists()
 
 

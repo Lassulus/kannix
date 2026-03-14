@@ -83,22 +83,22 @@ def test_list_tickets_empty(tickets: TicketManager):
 
 def test_update_ticket(tickets: TicketManager):
     ticket = tickets.create("Old title", "Old desc")
-    updated = tickets.update(ticket.id, title="New title", description="New desc")
+    updated = tickets.update(ticket.id, description="New desc")
     assert updated is not None
-    assert updated.title == "New title"
+    assert updated.title == "Old title"  # title is immutable
     assert updated.description == "New desc"
 
 
 def test_update_nonexistent_ticket(tickets: TicketManager):
-    assert tickets.update("nonexistent", title="X") is None
+    assert tickets.update("nonexistent", description="X") is None
 
 
 def test_update_partial_fields(tickets: TicketManager):
     ticket = tickets.create("Title", "Desc")
-    updated = tickets.update(ticket.id, title="New Title")
+    updated = tickets.update(ticket.id, description="New Desc")
     assert updated is not None
-    assert updated.title == "New Title"
-    assert updated.description == "Desc"  # unchanged
+    assert updated.title == "Title"  # unchanged, immutable
+    assert updated.description == "New Desc"
 
 
 def test_delete_ticket(tickets: TicketManager):

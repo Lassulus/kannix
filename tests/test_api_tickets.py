@@ -118,18 +118,18 @@ async def test_update_ticket(client: AsyncClient, user_token: str):
     ticket_id = create_resp.json()["id"]
     resp = await client.put(
         f"/api/tickets/{ticket_id}",
-        json={"title": "New", "description": "new desc"},
+        json={"description": "new desc"},
         headers=_auth(user_token),
     )
     assert resp.status_code == 200
-    assert resp.json()["title"] == "New"
+    assert resp.json()["title"] == "Old"  # title is immutable
     assert resp.json()["description"] == "new desc"
 
 
 async def test_update_nonexistent_ticket(client: AsyncClient, user_token: str):
     resp = await client.put(
         "/api/tickets/nonexistent",
-        json={"title": "X"},
+        json={"description": "X"},
         headers=_auth(user_token),
     )
     assert resp.status_code == 404

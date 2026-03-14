@@ -158,8 +158,9 @@ class GitManager:
         """Get the ticket workspace directory name from state."""
         state = self._state_manager.load()
         ticket = state.tickets.get(ticket_id)
-        title = ticket.title if ticket else ""
-        return ticket_dir_name(ticket_id, title)
+        if ticket and ticket.dir_name:
+            return ticket.dir_name
+        return ticket_id
 
     def _worktree_path(self, ticket_id: str, repo_name: str) -> Path:
         """Get the worktree path for a ticket+repo."""

@@ -21,6 +21,7 @@ class TicketState(BaseModel, extra="ignore"):
     column: str
     assigned_to: str | None
     repos: list[str] = []
+    dir_name: str = ""
 
 
 class RepoState(BaseModel, extra="ignore"):

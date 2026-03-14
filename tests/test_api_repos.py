@@ -233,7 +233,7 @@ async def test_assign_repo_to_ticket(
     assert repo_id in state.tickets[ticket.id].repos
 
     # Verify worktree exists
-    wt_path = tmp_path / "worktrees" / ticket.id / "myrepo"
+    wt_path = tmp_path / "worktrees" / ticket.dir_name / "myrepo"
     assert wt_path.exists()
 
 

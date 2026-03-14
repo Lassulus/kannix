@@ -38,13 +38,17 @@ class TicketManager:
 
     def create(self, title: str, description: str) -> TicketState:
         """Create a new ticket in the first column (sync, no hooks)."""
+        from kannix.git import ticket_dir_name
+
         state = self._state.load()
+        ticket_id = uuid.uuid4().hex
         ticket = TicketState(
-            id=uuid.uuid4().hex,
+            id=ticket_id,
             title=title,
             description=description,
             column=self._config.columns[0],
             assigned_to=None,
+            dir_name=ticket_dir_name(ticket_id, title),
         )
         state.tickets[ticket.id] = ticket
         self._state.save(state)
@@ -75,18 +79,18 @@ class TicketManager:
         self,
         ticket_id: str,
         *,
-        title: str | None = None,
         description: str | None = None,
         assigned_to: str | None | _Unset = UNSET,
     ) -> TicketState | None:
-        """Update ticket fields. Returns None if ticket not found."""
+        """Update ticket fields. Returns None if ticket not found.
+
+        Title is immutable (used for stable directory names).
+        """
         state = self._state.load()
         ticket = state.tickets.get(ticket_id)
         if ticket is None:
             return None
 
-        if title is not None:
-            ticket = ticket.model_copy(update={"title": title})
         if description is not None:
             ticket = ticket.model_copy(update={"description": description})
         if not isinstance(assigned_to, _Unset):

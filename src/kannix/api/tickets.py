@@ -31,7 +31,6 @@ class CreateTicketRequest(BaseModel):
 class UpdateTicketRequest(BaseModel):
     """Update ticket request."""
 
-    title: str | None = None
     description: str | None = None
     assigned_to: str | None = None
 
@@ -128,7 +127,6 @@ def create_tickets_router(deps: AppDeps) -> APIRouter:
         _require_auth(deps, authorization)
         ticket = ticket_mgr.update(
             ticket_id,
-            title=body.title,
             description=body.description,
         )
         if ticket is None:

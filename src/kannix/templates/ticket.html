@@ -13,8 +13,8 @@
         <form class="ticket-edit-form" id="ticket-form"
               hx-put="/htmx/tickets/{{ ticket.id }}"
               hx-target="#ticket-info" hx-swap="innerHTML">
-            <label for="title">Title</label>
-            <input class="edit-input" type="text" name="title" id="field-title" value="{{ ticket.title }}">
+            <label>Title</label>
+            <span class="edit-input" style="display:block">{{ ticket.title }}</span>
             <label for="description">Description</label>
             <textarea name="description" id="field-description" rows="3">{{ ticket.description }}</textarea>
             <div><button type="submit" class="btn btn-sm">Save</button></div>
@@ -110,13 +110,8 @@
                 if (!html || formFocused) return;
                 var tmp = document.createElement('div');
                 tmp.innerHTML = html;
-                var newTitle = tmp.querySelector('input[name="title"]');
                 var newDesc = tmp.querySelector('textarea[name="description"]');
-                if (newTitle) document.getElementById('field-title').value = newTitle.value;
                 if (newDesc) document.getElementById('field-description').value = newDesc.textContent;
-                // Update header title too
-                var span = document.getElementById('ticket-title');
-                if (span && newTitle) span.textContent = newTitle.value;
             });
     }, 3000);
 })();
