@@ -34,6 +34,7 @@ class KannixConfig(BaseModel):
     server: ServerConfig = ServerConfig()
     repos_dir: str | None = None
     worktree_dir: str | None = None
+    archive_dir: str | None = None
 
     @field_validator("columns")
     @classmethod

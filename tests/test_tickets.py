@@ -141,3 +141,41 @@ def test_assign_ticket(tickets: TicketManager):
     updated = tickets.update(ticket.id, assigned_to="alice")
     assert updated is not None
     assert updated.assigned_to == "alice"
+
+
+def test_archive_ticket(tickets: TicketManager):
+    ticket = tickets.create("Archive me", "")
+    archived = tickets.archive(ticket.id)
+    assert archived is not None
+    assert archived.archived is True
+    # Still accessible by ID
+    assert tickets.get(ticket.id) is not None
+    assert tickets.get(ticket.id).archived is True
+
+
+def test_archive_nonexistent_ticket(tickets: TicketManager):
+    assert tickets.archive("nonexistent") is None
+
+
+def test_archived_ticket_hidden_from_list(tickets: TicketManager):
+    t1 = tickets.create("Visible", "")
+    t2 = tickets.create("Will archive", "")
+    tickets.archive(t2.id)
+    visible = tickets.list_all()
+    assert len(visible) == 1
+    assert visible[0].id == t1.id
+
+
+def test_archived_ticket_visible_with_flag(tickets: TicketManager):
+    tickets.create("Visible", "")
+    t2 = tickets.create("Archived", "")
+    tickets.archive(t2.id)
+    all_tickets = tickets.list_all(include_archived=True)
+    assert len(all_tickets) == 2
+
+
+def test_delete_archived_ticket(tickets: TicketManager):
+    ticket = tickets.create("Delete after archive", "")
+    tickets.archive(ticket.id)
+    assert tickets.delete(ticket.id) is True
+    assert tickets.get(ticket.id) is None

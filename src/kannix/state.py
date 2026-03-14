@@ -22,6 +22,7 @@ class TicketState(BaseModel, extra="ignore"):
     assigned_to: str | None
     repos: list[str] = []
     dir_name: str = ""
+    archived: bool = False
 
 
 class RepoState(BaseModel, extra="ignore"):

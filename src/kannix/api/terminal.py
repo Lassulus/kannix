@@ -40,10 +40,14 @@ def create_terminal_router(deps: AppDeps, tmux: TmuxManager) -> APIRouter:
             await websocket.close(code=4001, reason="Invalid token")
             return
 
-        # Check ticket exists
+        # Check ticket exists and is not archived/deleted
         state = deps.state_manager.load()
-        if ticket_id not in state.tickets:
+        ticket_check = state.tickets.get(ticket_id)
+        if ticket_check is None:
             await websocket.close(code=4004, reason="Ticket not found")
+            return
+        if ticket_check.archived:
+            await websocket.close(code=4004, reason="Ticket archived")
             return
 
         # Ensure tmux session exists with env vars for kannix-ctl

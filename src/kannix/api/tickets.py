@@ -41,6 +41,14 @@ class MoveTicketRequest(BaseModel):
     column: str
 
 
+class ArchiveTicketResponse(BaseModel):
+    """Archive ticket response."""
+
+    status: str
+    id: str
+    archived: bool
+
+
 class TicketResponse(BaseModel):
     """Ticket response."""
 
@@ -49,6 +57,7 @@ class TicketResponse(BaseModel):
     description: str
     column: str
     assigned_to: str | None
+    archived: bool = False
 
 
 def _require_auth(deps: AppDeps, authorization: str) -> UserState:
@@ -67,7 +76,12 @@ def _require_auth(deps: AppDeps, authorization: str) -> UserState:
 def create_tickets_router(deps: AppDeps) -> APIRouter:
     """Create tickets API router."""
     router = APIRouter()
-    ticket_mgr = TicketManager(deps.state_manager, deps.config)
+    ticket_mgr = TicketManager(
+        deps.state_manager,
+        deps.config,
+        hook_executor=deps.hook_executor,
+        git_manager=deps.git_manager,
+    )
 
     @router.post("", response_model=TicketResponse, status_code=201)
     async def create_ticket(
@@ -82,14 +96,16 @@ def create_tickets_router(deps: AppDeps) -> APIRouter:
             description=ticket.description,
             column=ticket.column,
             assigned_to=ticket.assigned_to,
+            archived=ticket.archived,
         )
 
     @router.get("", response_model=list[TicketResponse])
     async def list_tickets(
         authorization: str = Header(default=""),
+        include_archived: bool = False,
     ) -> list[TicketResponse]:
         _require_auth(deps, authorization)
-        tickets = ticket_mgr.list_all()
+        tickets = ticket_mgr.list_all(include_archived=include_archived)
         return [
             TicketResponse(
                 id=t.id,
@@ -97,6 +113,7 @@ def create_tickets_router(deps: AppDeps) -> APIRouter:
                 description=t.description,
                 column=t.column,
                 assigned_to=t.assigned_to,
+                archived=t.archived,
             )
             for t in tickets
         ]
@@ -116,6 +133,7 @@ def create_tickets_router(deps: AppDeps) -> APIRouter:
             description=ticket.description,
             column=ticket.column,
             assigned_to=ticket.assigned_to,
+            archived=ticket.archived,
         )
 
     @router.put("/{ticket_id}", response_model=TicketResponse)
@@ -137,6 +155,7 @@ def create_tickets_router(deps: AppDeps) -> APIRouter:
             description=ticket.description,
             column=ticket.column,
             assigned_to=ticket.assigned_to,
+            archived=ticket.archived,
         )
 
     @router.delete("/{ticket_id}")
@@ -148,6 +167,21 @@ def create_tickets_router(deps: AppDeps) -> APIRouter:
         if not ticket_mgr.delete(ticket_id):
             raise HTTPException(status_code=404, detail="Ticket not found")
         return {"status": "deleted"}
+
+    @router.post("/{ticket_id}/archive", response_model=ArchiveTicketResponse)
+    async def archive_ticket(
+        ticket_id: str,
+        authorization: str = Header(default=""),
+    ) -> ArchiveTicketResponse:
+        _require_auth(deps, authorization)
+        ticket = ticket_mgr.archive(ticket_id)
+        if ticket is None:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+        return ArchiveTicketResponse(
+            status="archived",
+            id=ticket.id,
+            archived=ticket.archived,
+        )
 
     @router.post("/{ticket_id}/move", response_model=TicketResponse)
     async def move_ticket(
@@ -168,6 +202,7 @@ def create_tickets_router(deps: AppDeps) -> APIRouter:
             description=ticket.description,
             column=ticket.column,
             assigned_to=ticket.assigned_to,
+            archived=ticket.archived,
         )
 
     return router

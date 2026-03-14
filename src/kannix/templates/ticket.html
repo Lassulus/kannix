@@ -20,6 +20,20 @@
             <div><button type="submit" class="btn btn-sm">Save</button></div>
         </form>
         <div id="ticket-info"></div>
+        <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+            <button class="btn btn-sm"
+                    hx-post="/htmx/tickets/{{ ticket.id }}/archive"
+                    hx-confirm="Archive this ticket? It will be hidden from the board."
+                    hx-on::after-request="window.location='/board'">
+                📦 Archive
+            </button>
+            <button class="btn btn-sm" style="color: var(--danger, #e94560);"
+                    hx-delete="/htmx/tickets/{{ ticket.id }}"
+                    hx-confirm="Permanently delete this ticket? The .pi directory will be backed up."
+                    hx-on::after-request="window.location='/board'">
+                🗑 Delete
+            </button>
+        </div>
     </div>
     {% if git_enabled %}
     <h2 style="margin-bottom: 0.5rem;">Repositories</h2>
@@ -89,7 +103,12 @@
     // Refit xterm when container is resized via CSS resize handle
     new ResizeObserver(function() { fitAddon.fit(); }).observe(container);
 
-    ws.onclose = function() {
+    ws.onclose = function(evt) {
+        if (evt.code === 4004) {
+            // Ticket deleted or archived — go back to board
+            window.location = '/board';
+            return;
+        }
         term.write('\r\n\x1b[31m[Connection closed. Reconnecting in 3s...]\x1b[0m\r\n');
         setTimeout(function() { location.reload(); }, 3000);
     };
@@ -102,10 +121,18 @@
     form.addEventListener('focusin', function() { formFocused = true; });
     form.addEventListener('focusout', function() { formFocused = false; });
 
-    setInterval(function() {
+    var pollId = setInterval(function() {
         if (formFocused) return;
         fetch('/htmx/tickets/{{ ticket.id }}/fields', {credentials: 'same-origin'})
-            .then(function(r) { return r.ok ? r.text() : null; })
+            .then(function(r) {
+                if (r.status === 404) {
+                    // Ticket deleted or archived
+                    clearInterval(pollId);
+                    window.location = '/board';
+                    return null;
+                }
+                return r.ok ? r.text() : null;
+            })
             .then(function(html) {
                 if (!html || formFocused) return;
                 var tmp = document.createElement('div');

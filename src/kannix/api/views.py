@@ -49,7 +49,12 @@ def create_views_router(deps: AppDeps) -> APIRouter:
     """Create HTML view router."""
     router = APIRouter()
     templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
-    ticket_mgr = TicketManager(deps.state_manager, deps.config)
+    ticket_mgr = TicketManager(
+        deps.state_manager,
+        deps.config,
+        hook_executor=deps.hook_executor,
+        git_manager=deps.git_manager,
+    )
 
     @router.get("/")
     async def root(
@@ -98,8 +103,8 @@ def create_views_router(deps: AppDeps) -> APIRouter:
             return RedirectResponse(url="/login", status_code=302)
         ticket_mgr_local = TicketManager(deps.state_manager, deps.config)
         ticket = ticket_mgr_local.get(ticket_id)
-        if ticket is None:
-            return HTMLResponse("Ticket not found", status_code=404)
+        if ticket is None or ticket.archived:
+            return RedirectResponse(url="/board", status_code=302)
 
         # Get repo info for assignment UI
         all_repos = deps.git_manager.list_repos() if deps.git_manager else []
@@ -237,7 +242,12 @@ def create_htmx_router(deps: AppDeps) -> APIRouter:
     """Create HTMX partial response router."""
     router = APIRouter()
     templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
-    ticket_mgr = TicketManager(deps.state_manager, deps.config)
+    ticket_mgr = TicketManager(
+        deps.state_manager,
+        deps.config,
+        hook_executor=deps.hook_executor,
+        git_manager=deps.git_manager,
+    )
 
     @router.post("/tickets")
     async def create_ticket(
@@ -249,7 +259,7 @@ def create_htmx_router(deps: AppDeps) -> APIRouter:
         user = _get_user(deps, token)
         if user is None:
             return RedirectResponse(url="/login", status_code=302)
-        ticket = ticket_mgr.create(title, description)
+        ticket = await ticket_mgr.create_async(title, description)
         return templates.TemplateResponse(
             request,
             "partials/ticket_card.html",
@@ -286,7 +296,7 @@ def create_htmx_router(deps: AppDeps) -> APIRouter:
             return HTMLResponse("", status_code=401)
         ticket_mgr_local = TicketManager(deps.state_manager, deps.config)
         ticket = ticket_mgr_local.get(ticket_id)
-        if ticket is None:
+        if ticket is None or ticket.archived:
             return HTMLResponse("", status_code=404)
         return templates.TemplateResponse(
             request,
@@ -409,5 +419,40 @@ def create_htmx_router(deps: AppDeps) -> APIRouter:
             "partials/ticket_card.html",
             {"ticket": ticket},
         )
+
+    @router.post("/tickets/{ticket_id}/archive")
+    async def archive_ticket(
+        request: Request,
+        ticket_id: str,
+        token: str | None = Cookie(default=None),
+    ) -> Response:
+        user = _get_user(deps, token)
+        if user is None:
+            return RedirectResponse(url="/login", status_code=302)
+        ticket = await ticket_mgr.archive_async(ticket_id)
+        if ticket is None:
+            return HTMLResponse("Ticket not found", status_code=404)
+        # Kill the tmux session for this ticket
+        if deps.tmux_manager is not None:
+            deps.tmux_manager.kill_session(ticket_id)
+        # Return empty content so the card is removed from the board
+        return HTMLResponse("")
+
+    @router.delete("/tickets/{ticket_id}")
+    async def delete_ticket(
+        request: Request,
+        ticket_id: str,
+        token: str | None = Cookie(default=None),
+    ) -> Response:
+        user = _get_user(deps, token)
+        if user is None:
+            return RedirectResponse(url="/login", status_code=302)
+        # Kill the tmux session before deleting
+        if deps.tmux_manager is not None:
+            deps.tmux_manager.kill_session(ticket_id)
+        if not await ticket_mgr.delete_async(ticket_id):
+            return HTMLResponse("Ticket not found", status_code=404)
+        # Return empty content so the card is removed from the board
+        return HTMLResponse("")
 
     return router

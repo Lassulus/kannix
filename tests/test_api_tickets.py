@@ -192,3 +192,51 @@ async def test_move_nonexistent_ticket(client: AsyncClient, user_token: str):
         headers=_auth(user_token),
     )
     assert resp.status_code == 404
+
+
+async def test_archive_ticket(client: AsyncClient, user_token: str):
+    create_resp = await client.post(
+        "/api/tickets",
+        json={"title": "Archive me", "description": ""},
+        headers=_auth(user_token),
+    )
+    ticket_id = create_resp.json()["id"]
+    resp = await client.post(
+        f"/api/tickets/{ticket_id}/archive",
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "archived"
+    assert data["archived"] is True
+
+    # Should not appear in default listing
+    list_resp = await client.get("/api/tickets", headers=_auth(user_token))
+    assert all(t["id"] != ticket_id for t in list_resp.json())
+
+    # Should appear with include_archived
+    list_resp2 = await client.get(
+        "/api/tickets?include_archived=true", headers=_auth(user_token)
+    )
+    assert any(t["id"] == ticket_id for t in list_resp2.json())
+
+
+async def test_archive_nonexistent_ticket(client: AsyncClient, user_token: str):
+    resp = await client.post(
+        "/api/tickets/nonexistent/archive",
+        headers=_auth(user_token),
+    )
+    assert resp.status_code == 404
+
+
+async def test_archived_ticket_still_gettable(client: AsyncClient, user_token: str):
+    create_resp = await client.post(
+        "/api/tickets",
+        json={"title": "Archived but gettable", "description": ""},
+        headers=_auth(user_token),
+    )
+    ticket_id = create_resp.json()["id"]
+    await client.post(f"/api/tickets/{ticket_id}/archive", headers=_auth(user_token))
+    resp = await client.get(f"/api/tickets/{ticket_id}", headers=_auth(user_token))
+    assert resp.status_code == 200
+    assert resp.json()["archived"] is True

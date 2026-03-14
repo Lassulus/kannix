@@ -102,4 +102,5 @@ async def test_ticket_detail_not_found(
         "/ticket/nonexistent",
         cookies={"token": user.token},
     )
-    assert resp.status_code == 404
+    assert resp.status_code == 302
+    assert resp.headers["location"] == "/board"

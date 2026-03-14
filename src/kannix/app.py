@@ -49,11 +49,20 @@ def create_app(
                 state_manager=state_manager,
             )
 
+        # Set up hook executor if hooks are configured
+        from kannix.hooks import HookExecutor
+
+        hook_executor = HookExecutor(config.hooks)
+
+        tmux = TmuxManager()
+
         deps = AppDeps(
             config=config,
             state_manager=state_manager,
             auth_manager=auth_manager,
             git_manager=git_manager,
+            hook_executor=hook_executor,
+            tmux_manager=tmux,
         )
         app.state.deps = deps
 
@@ -74,7 +83,6 @@ def create_app(
         app.include_router(create_htmx_router(deps), prefix="/htmx")
 
         # Terminal WebSocket
-        tmux = TmuxManager()
         app.include_router(create_terminal_router(deps, tmux))
 
     # Mount static files

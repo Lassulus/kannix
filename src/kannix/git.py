@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import re
 import shutil
@@ -263,6 +264,58 @@ class GitManager:
         if wt_path.exists():
             return wt_path
         return None
+
+    def get_ticket_workspace_path(self, ticket_id: str) -> Path | None:
+        """Get the ticket workspace directory (parent of repo worktrees).
+
+        Returns None if the directory doesn't exist.
+        """
+        ticket_dir = self._ticket_dir(ticket_id)
+        ws_path = self._worktree_dir / ticket_dir
+        if ws_path.exists():
+            return ws_path
+        return None
+
+    def backup_ticket_pi(self, ticket_id: str, archive_dir: Path) -> Path | None:
+        """Backup the .pi directory from a ticket's workspace to the archive dir.
+
+        Returns the archive path if backup was created, None if no .pi found.
+        """
+        ws_path = self.get_ticket_workspace_path(ticket_id)
+        if ws_path is None:
+            return None
+
+        pi_path = ws_path / ".pi"
+        if not pi_path.exists():
+            return None
+
+        ticket_dir = self._ticket_dir(ticket_id)
+        timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%m%d-%H%M%S")
+        dest = archive_dir / f"{ticket_dir}-{timestamp}" / ".pi"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(pi_path, dest)
+        return dest.parent
+
+    def delete_ticket_workspace(self, ticket_id: str) -> bool:
+        """Delete all worktrees for a ticket and remove the workspace directory.
+
+        Returns True if anything was cleaned up.
+        """
+        # Remove git worktrees for all repos
+        state = self._state_manager.load()
+        ticket = state.tickets.get(ticket_id)
+        if ticket is None:
+            return False
+
+        for repo_id in list(ticket.repos):
+            self.delete_worktree(repo_id, ticket_id)
+
+        # Remove the entire ticket workspace directory
+        ws_path = self.get_ticket_workspace_path(ticket_id)
+        if ws_path is not None and ws_path.exists():
+            shutil.rmtree(ws_path)
+            return True
+        return False
 
     def get_diff(self, repo_id: str, ticket_id: str) -> str:
         """Get the diff for a ticket's worktree vs merge-base.
