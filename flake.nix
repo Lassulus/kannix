@@ -88,6 +88,11 @@
           '';
         };
 
+        formatter = pkgs.writeShellScriptBin "kannix-fmt" ''
+          ${pkgs.ruff}/bin/ruff format src/ tests/
+          ${pkgs.ruff}/bin/ruff check --fix src/ tests/
+        '';
+
         devShells.default = pkgs.mkShell {
           packages = [
             pythonEnv
