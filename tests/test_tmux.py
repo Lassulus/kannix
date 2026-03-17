@@ -59,7 +59,6 @@ def test_get_pty_fd(tmux: TmuxManager):
     assert fd > 0
     assert pid > 0
     # Clean up
-    import os
 
     os.close(fd)
 

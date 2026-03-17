@@ -215,9 +215,7 @@ async def test_archive_ticket(client: AsyncClient, user_token: str):
     assert all(t["id"] != ticket_id for t in list_resp.json())
 
     # Should appear with include_archived
-    list_resp2 = await client.get(
-        "/api/tickets?include_archived=true", headers=_auth(user_token)
-    )
+    list_resp2 = await client.get("/api/tickets?include_archived=true", headers=_auth(user_token))
     assert any(t["id"] == ticket_id for t in list_resp2.json())
 
 

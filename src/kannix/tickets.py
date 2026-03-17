@@ -108,7 +108,10 @@ class TicketManager:
         return ticket
 
     def delete(self, ticket_id: str) -> bool:
-        """Delete a ticket (sync, no hooks). Backs up .pi and cleans up workspace. Returns True if deleted."""
+        """Delete a ticket (sync, no hooks).
+
+        Backs up .pi and cleans up workspace. Returns True if deleted.
+        """
         state = self._state.load()
         if ticket_id not in state.tickets:
             return False

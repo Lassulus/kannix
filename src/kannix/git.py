@@ -333,7 +333,7 @@ class GitManager:
             return None
 
         ticket_dir = self._ticket_dir(ticket_id)
-        timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
         dest = archive_dir / f"{ticket_dir}-{timestamp}" / ".pi"
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(pi_path, dest)
@@ -425,9 +425,7 @@ class GitManager:
                 )
                 if ut_diff.stdout:
                     # Rewrite the header so it looks like a normal a/b diff
-                    patched = ut_diff.stdout.replace(
-                        "/dev/null", f"a/{fname}", 1
-                    )
+                    patched = ut_diff.stdout.replace("/dev/null", f"a/{fname}", 1)
                     parts.append(patched)
 
         return "".join(parts)
